@@ -1,0 +1,156 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Example Makefile for host repositories using the typst/ subrepo
+# ─────────────────────────────────────────────────────────────────────────────
+# Copy this file to your host repository root:
+#   cp typst/Makefile.example Makefile
+#
+# Requirements:
+#   - Python >= 3.14 + uv (https://docs.astral.sh/uv/)
+#   - Typst (brew install typst)
+#   - Pandoc (brew install pandoc)
+#   - build.yaml at repository root
+# ─────────────────────────────────────────────────────────────────────────────
+
+SHELL := /bin/bash
+.SHELLFLAGS := -euo pipefail -c
+
+# Directory structure
+BUILD_DIR := build
+MERMAID_DIR := $(BUILD_DIR)/mermaid
+DIAGRAMS_DIR := $(BUILD_DIR)/diagrams
+DIAGRAMS_OPT_DIR := $(BUILD_DIR)/diagrams-opt
+TYPST_DIR := $(BUILD_DIR)/typst
+PDF_DIR := $(BUILD_DIR)/pdf
+
+# Optional per-machine overrides (e.g. BRAND = plandek or mindrocket). Not committed.
+-include local.mk
+
+# Default PDF theme: neutral. Override: `make pdf BRAND=mindrocket` or local.mk.
+BRAND ?= neutral
+
+# Optional cover style and seed overrides: `make pdf-doc DOC=vision COVER_STYLE=minimal SEED=42`
+COVER_STYLE ?=
+SEED ?=
+SEEDS ?=
+COVER_FLAGS := $(if $(COVER_STYLE),--cover-style $(COVER_STYLE),) $(if $(SEED),--seed $(SEED),)
+
+.PHONY: all extract render pdf pdf-draft pdf-doc pdf-book pdf-assemble pdf-plandek pdf-draft-plandek pdf-mindrocket pdf-draft-mindrocket cover pdf-cover clean help lint-typst
+
+all: pdf
+
+# Verify Typst Markdown formatting rules across docs/drafts/
+lint-typst:
+	@echo "Verifying Typst Markdown formatting rules..."
+	uv run python typst/scripts/verify-typst-formatting.py
+
+# Extract Mermaid code fences into .mmd files and build/mermaid/manifest.json
+extract:
+	@echo "Extracting mermaid diagrams from markdown..."
+	@mkdir -p $(MERMAID_DIR)
+	uv run python typst/scripts/extract-mermaid.py \
+		--input docs/drafts \
+		--output $(MERMAID_DIR)
+
+# Render Mermaid .mmd to SVG via mermaid.ink service (incremental, hash-cached)
+render: extract
+	@echo ""
+	@echo "Rendering mermaid diagrams to SVG..."
+	@mkdir -p $(DIAGRAMS_DIR)
+	@uv run python typst/scripts/render-mermaid-ink.py
+
+# Full production build (optimises images, checks target size)
+pdf: render
+	@echo ""
+	@echo "Building PDFs (production profile)..."
+	@mkdir -p $(PDF_DIR) $(TYPST_DIR) $(DIAGRAMS_OPT_DIR)
+	uv run python typst/scripts/build.py --profile production --brand $(BRAND) $(COVER_FLAGS)
+
+# Fast draft build (skips image optimisation)
+pdf-draft: render
+	@echo ""
+	@echo "Building PDFs (draft profile — no image optimisation)..."
+	@mkdir -p $(PDF_DIR) $(TYPST_DIR)
+	uv run python typst/scripts/build.py --profile draft --brand $(BRAND) $(COVER_FLAGS)
+
+# Plandek brand shortcuts
+pdf-plandek:
+	@$(MAKE) pdf BRAND=plandek
+
+pdf-draft-plandek:
+	@$(MAKE) pdf-draft BRAND=plandek
+
+# Mind Rocket brand shortcuts
+pdf-mindrocket:
+	@$(MAKE) pdf BRAND=mindrocket
+
+pdf-draft-mindrocket:
+	@$(MAKE) pdf-draft BRAND=mindrocket
+
+# Build a specific document from build.yaml: make pdf-doc DOC=<id>
+pdf-doc: render
+	@echo ""
+	@echo "Building document: $(DOC)"
+	@mkdir -p $(PDF_DIR) $(TYPST_DIR) $(DIAGRAMS_OPT_DIR)
+	uv run python typst/scripts/build.py --profile production --docs $(DOC) --no-books --brand $(BRAND) $(COVER_FLAGS)
+
+# Build a specific assembled book from build.yaml: make pdf-book BOOK=<id>
+pdf-book: render
+	@echo ""
+	@echo "Building book: $(BOOK)"
+	@mkdir -p $(PDF_DIR) $(TYPST_DIR) $(DIAGRAMS_OPT_DIR)
+	uv run python typst/scripts/build.py --profile production --books $(BOOK) --no-docs --brand $(BRAND) $(COVER_FLAGS)
+
+# Ad-hoc PDF from arbitrary Markdown paths (no build.yaml registration required):
+# Example: make pdf-assemble ASSEMBLE="docs/drafts/a.md docs/drafts/b.md"
+pdf-assemble: render
+	@echo ""
+	@echo "Assembling PDF from: $(ASSEMBLE)"
+	@mkdir -p $(PDF_DIR) $(TYPST_DIR) $(DIAGRAMS_OPT_DIR)
+	uv run python typst/scripts/build.py --profile production --assemble $(ASSEMBLE) --brand $(BRAND) $(COVER_FLAGS)
+
+# Fast procedural cover preview (1-page PDF, <0.1s, skips doc build)
+# Examples:
+#   make cover BRAND=mindrocket SEED=42
+#   make cover BRAND=mindrocket SEEDS="0 7 13 42 77 99"
+#   make cover BRAND=mindrocket COVER_STYLE=full-bleed SEED=88
+cover:
+	@mkdir -p $(PDF_DIR) $(TYPST_DIR) $(BUILD_DIR)/covers
+	uv run python typst/scripts/build.py --cover-only \
+		$(if $(DOC),--docs $(DOC),) \
+		$(if $(BOOK),--books $(BOOK),) \
+		$(if $(BRAND),--brand $(BRAND),) \
+		$(COVER_FLAGS) \
+		$(if $(SEEDS),--seeds $(SEEDS),)
+
+pdf-cover: cover
+
+# Configure git to use multi-subrepo hook dispatchers in .githooks/
+init-hooks:
+	@echo "Configuring git core.hooksPath to .githooks/..."
+	git config core.hooksPath .githooks
+	chmod +x .githooks/*
+	@echo "✓ Git hooks configured to use multi-subrepo dispatcher"
+
+# Remove generated build artefacts
+clean:
+	@echo "Cleaning build directory..."
+	@rm -rf $(BUILD_DIR)
+	@echo "✓ Build directory removed"
+
+help:
+	@echo "Document PDF pipeline (Typst)"
+	@echo ""
+	@echo "Targets:"
+	@echo "  make all           - Build all PDFs (extract + render + pdf)"
+	@echo "  make extract       - Extract .mmd files from markdown"
+	@echo "  make render        - Render .mmd to SVG (incremental, hash-based)"
+	@echo "  make pdf           - Build all docs + books (production, optimised)"
+	@echo "  make pdf-draft     - Build all docs + books (draft, fast, no image opt)"
+	@echo "  make pdf-doc DOC=<id>  - One standalone PDF (from build.yaml)"
+	@echo "  make pdf-book BOOK=<id> - One assembled book PDF"
+	@echo "  make pdf-assemble ASSEMBLE=\"path/a.md path/b.md\" - Ad-hoc PDF (no YAML)"
+	@echo "  make pdf-plandek   - Same as: make pdf BRAND=plandek"
+	@echo "  make pdf-mindrocket - Same as: make pdf BRAND=mindrocket"
+	@echo "  make cover [BRAND=...] [SEED=...] - Fast cover preview (1-page PDF)"
+	@echo "  make lint-typst    - Check Markdown formatting rules"
+	@echo "  make clean         - Remove build directory"

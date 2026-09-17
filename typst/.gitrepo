@@ -1,0 +1,12 @@
+; DO NOT EDIT (unless you know what you are doing)
+;
+; This subdirectory is a git "subrepo", and this file is maintained by the
+; git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
+;
+[subrepo]
+	remote = https://github.com/Schmoiger/typst-engine.git
+	branch = main
+	commit = b24e1a86c98c84790daab6d17338ac259f922876
+	parent = 2f193f97918a69510ddf7f34720ca75a386ce5f7
+	method = merge
+	cmdver = 0.4.9

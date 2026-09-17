@@ -1,0 +1,111 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Example build configuration for host repositories using the typst/ subrepo
+# ─────────────────────────────────────────────────────────────────────────────
+# Copy this file to your host repository root:
+#   cp typst/build.yaml.example build.yaml
+#
+# Consumed by: typst/scripts/build.py
+# Run:
+#   make pdf            (build all docs + books, profile=production)
+#   make pdf-draft      (fast build, skips image optimisation)
+#   make pdf-doc DOC=my-doc
+#   make pdf-book BOOK=my-book
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Pipeline defaults ─────────────────────────────────────────────────────────
+pipeline:
+  # Default brand pack when Make passes `--brand $(BRAND)` with no override.
+  # Options: neutral (default), plandek, mindrocket (or custom brands defined below).
+  default_brand: neutral
+
+  # Maximum pixel dimension (longest axis) for resized images in production.
+  max_px: 1024
+
+  # Number of palette colours for PNG quantisation (Floyd-Steinberg dithering).
+  quant_colours: 256
+
+  # Target size threshold (in MB) for size warnings.
+  size_target_mb: 3
+
+# ── Build profiles ────────────────────────────────────────────────────────────
+profiles:
+  # production: full optimisation (resizes & quantises images, performs size check).
+  production:
+    optimise_images: true
+    size_check: true
+
+  # draft: fast build skipping image processing for rapid writing iteration.
+  draft:
+    optimise_images: false
+    size_check: false
+
+# ── PDF brand packs (Typst) ───────────────────────────────────────────────────
+# Maps brand id → module path relative to repository root (`typst compile --root .`).
+brands:
+  neutral:
+    module: /typst/brands/neutral.typ
+  plandek:
+    module: /typst/brands/plandek.typ
+  mindrocket:
+    module: /typst/brands/mindrocket.typ
+
+# ── Document registry ─────────────────────────────────────────────────────────
+# Each entry defines a standalone single-document build.
+# Wrappers (build/typst/{id}-book.typ) are dynamically generated at build time.
+#
+# Fields:
+#   src:         Path to Markdown source file (e.g. docs/drafts/my-doc.md)
+#   title:       Cover title (use \n for line breaks)
+#   subtitle:    Cover subtitle
+#   date:        Cover date string (e.g. "March 2026")
+#   edition:     Optional edition string (e.g. "Version 1.0")
+#   cover-style: Optional cover layout: "split-mesh" (default), "minimal", or "full-bleed"
+#   seed:        Optional integer seed modulating procedural cover geometry (e.g. 42)
+#   brand:       Optional fixed brand override (pins this doc to a specific brand)
+documents:
+  sample-doc:
+    src: docs/drafts/sample-doc.md
+    title: "Sample Document\nTitle"
+    subtitle: "A Guide to Architecture & Operations"
+    date: "March 2026"
+    cover-style: split-mesh
+    seed: 42
+
+# ── Books (multi-document compilations) ───────────────────────────────────────
+# A book compiles multiple documents and interstitials into a single continuous
+# PDF with shared pagination, unified cover, and consistent headers/footers.
+#
+# Part types:
+#   document:     References a document id from the `documents:` registry above.
+#   interstitial: Injects a divider page or styled table of contents.
+#                 Params:
+#                   style: part-divider (default) or contents
+#                   label: e.g. "Part 1"
+#                   title: e.g. "Strategic Architecture"
+#                   contents: true (embeds a mini-TOC of this part's sections)
+#                   depth: 2 (heading depth for mini-TOC)
+#
+# End-page (optional):
+#   Markdown file included on the closing back page (can vary per brand).
+books:
+  sample-book:
+    title: "Technical Delivery\nHandbook"
+    subtitle: "Architecture · Operations · Metrics"
+    date: "March 2026"
+    output: build/pdf/sample-book.pdf
+    cover-style: split-mesh
+    seed: 77
+    end-page:
+      mindrocket: docs/drafts/end-page-mindrocket.md
+      plandek: docs/drafts/end-page-plandek.md
+      neutral: docs/drafts/end-page-neutral.md
+    parts:
+      - type: interstitial
+        params:
+          style: part-divider
+          label: "Part 1"
+          title: "Architecture & Vision"
+          contents: true
+          depth: 2
+      - type: document
+        doc: sample-doc
