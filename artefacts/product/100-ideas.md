@@ -1,0 +1,1 @@
+/Users/avi/Library/CloudStorage/GoogleDrive-mind.r0ck3t@gmail.com/My Drive/Mind Rocket/Blog/Articles and Blog Assets/100-ideas.md
