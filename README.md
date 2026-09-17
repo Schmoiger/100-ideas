@@ -1,6 +1,6 @@
-# Agent Harness
+# 100 Ideas
 
-Agentic Orchestration Harness runtime adapter generator and drift validator
+Agentic app to automate 100 Ideas book and subsequent blog posts
 
 ---
 

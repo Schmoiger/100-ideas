@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "agent-harness"
+name = "100-ideas"
 version = "0.1.0"
-description = "Agentic Orchestration Harness runtime adapter generator and drift validator"
+description = "Agentic app to automate 100 Ideas book and subsequent blog posts"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
