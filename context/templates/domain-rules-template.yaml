@@ -1,0 +1,75 @@
+# Domain Rules Template
+# Location: services/{domain}/context/domain-rules.yaml
+# Purpose: Capture essential complexity - irreducible domain knowledge
+
+domain: {domain-name}
+version: 1.0
+escalation_threshold: medium  # low | medium | high
+
+# Invariants: Rules that must NEVER be violated
+# These become executable tests in tests/{domain}/invariants.test.ts
+invariants:
+  - id: INV-001
+    rule: "{Property that must always hold}"
+    rationale: "{Why this matters}"
+    test_ref: "invariants.test.ts#test-name"  # Link to executable test
+    # Example:
+    # rule: "Account balance is never negative"
+    # rationale: "Overdrafts require explicit approval workflow"
+
+# Gotchas: Known pitfalls and edge cases
+# Agents consult before implementation
+gotchas:
+  - id: GOT-001
+    situation: "{When this applies}"
+    pitfall: "{What goes wrong}"
+    correct_approach: "{What to do instead}"
+    # Example:
+    # situation: "Parsing dates from legacy API"
+    # pitfall: "Assumes ISO8601, but legacy returns DD/MM/YYYY"
+    # correct_approach: "Use parseLegacyDate() helper"
+
+# Terminology: Domain-specific language
+# Prevents misunderstandings between agents and with humans
+terminology:
+  - term: "{domain term}"
+    meaning: "{precise definition}"
+    not_to_be_confused_with: "{similar term}"  # optional
+    # Example:
+    # term: "settlement"
+    # meaning: "When funds actually transfer to merchant (T+2 for cards)"
+    # not_to_be_confused_with: "authorisation (hold on funds)"
+
+# Resolved blockers: Decisions made during development
+# Single source of truth for escalation resolutions
+resolved_blockers:
+  - id: "{DOMAIN}-{number}"  # e.g., PAY-042
+    question: "{Original question that was escalated}"
+    decision: "{What was decided}"
+    rationale: "{Why this decision}"
+    decided_by: "{human | role}"
+    date: "{ISO8601}"
+    # Example:
+    # id: PAY-042
+    # question: "Should failed webhooks retry?"
+    # decision: "Yes, exponential backoff, max 5 attempts, 1hr max delay"
+    # rationale: "Balance reliability vs not overwhelming failed endpoints"
+    # decided_by: "tech-lead"
+    # date: "2025-01-29"
+
+# External dependencies: Integration points with known quirks
+external_dependencies:
+  - name: "{service/API name}"
+    quirks:
+      - "{Known behaviour that differs from expectation}"
+    timeouts:
+      default: "{duration}"
+      max: "{duration}"
+    # Example:
+    # name: "Payment Gateway API"
+    # quirks:
+    #   - "Returns 200 with error in body, not 4xx"
+    #   - "Sandbox behaves differently to production"
+    # timeouts:
+    #   default: "30s"
+    #   max: "60s"

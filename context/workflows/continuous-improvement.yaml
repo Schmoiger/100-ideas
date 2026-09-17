@@ -1,0 +1,129 @@
+name: continuous-improvement
+description: Framework improvement — reactive (human reports incident) or proactive (review accumulated data)
+
+modes:
+  incident: Human reports a specific failure mode — diagnose, fix, record
+  retrospective: Review interruptions, metrics, and incidents for patterns — suggest, fix, record
+
+phases:
+  # --- Incident mode entry ---
+  - id: report
+    name: Incident Report
+    mode: incident
+    agents: []
+    outputs:
+      - artefacts/build/agent-incidents.md (new entry)
+    notes:
+      - Human describes what they observed
+      - Orchestrator captures symptom, asks clarifying questions if needed
+      - Append incident entry with severity, symptom — root cause and fix are "pending"
+
+  - id: diagnose
+    name: Root Cause Analysis
+    mode: incident
+    depends_on: [report]
+    agents: []
+    notes:
+      - Trace symptom to root cause in specific files (file:line)
+      - Causal chain required — symptom → mechanism → file → gap
+      - Do not infer from names or metadata; read the code/config
+    validation:
+      - Root cause cites specific file paths
+      - Causal chain is complete (no gaps between symptom and root cause)
+
+  # --- Retrospective mode entry ---
+  - id: review
+    name: Data Review
+    mode: retrospective
+    agents:
+      - workflow-analyst
+      - tokenomics-analyst
+    notes:
+      - "Specialisation:"
+      - "  workflow-analyst: macro workflow flow, handoffs, task bottlenecks, and cycle times"
+      - "  tokenomics-analyst: micro agent effectiveness, token economics, context bloat, model tiering (per context/models.yaml), and autonomy rates"
+      - "Data sources:"
+      - "  artefacts/build/agent-interruptions.md — blocking moments (questions, approvals, escalations)"
+      - "  artefacts/build/agent-incidents.md — framework failures already logged"
+      - "  git log --format='%H %s%n%b' — reconstruct per-commit metrics from Agent-Session lines:"
+      - "    tokens= (injected by prepare-commit-msg hook from session telemetry)"
+      - "    duration= (added by orchestrator at commit time)"
+      - "    agents= (which agent produced this commit)"
+      - "    dispatch= interactions= approvals= (interaction tracking, added by orchestrator)"
+      - "Aggregate git data to answer:"
+      - "  Total tokens per agent, per sprint, per task"
+      - "  Duration per task and per sprint"
+      - "  Which agents consume the most tokens relative to output"
+      - "  Token cost trends across sprints"
+      - "  Autonomy rate: % of commits with dispatch=orchestrator and interactions=0"
+      - "  Human cost distribution: interactions and approvals across commits"
+      - "Look for patterns across all sources:"
+      - "  Repeated interruption types (same rule violation recurring)"
+      - "  Agents consistently exceeding token budgets"
+      - "  Escalations that should have been caught by rules"
+      - "  Incidents with similar root causes suggesting a deeper gap"
+      - Report findings to orchestrator with specific file:line references
+    validation:
+      - Git log parsed for Agent-Session metrics across relevant commits
+      - Interruptions and incidents logs read
+      - Patterns identified with evidence (counts, examples)
+      - Each finding references specific files that would need to change
+
+  - id: discuss
+    name: Discuss with Human
+    mode: retrospective
+    depends_on: [review]
+    agents: []
+    gate: true
+    notes:
+      - Present findings as patterns with evidence, not raw metrics
+      - Each finding framed as: pattern observed → root cause → proposed fix
+      - Human decides which findings to act on
+
+  # --- Shared tail ---
+  - id: fix
+    name: Fix and Commit
+    depends_on: [diagnose, discuss]  # whichever mode was used
+    parallel: true
+    agents:
+      - python-coder
+      - typescript-coder
+    notes:
+      - Delegate implementation changes to appropriate agents
+      - Standards, rules, and templates may be edited directly by orchestrator (< 50 lines per file)
+      - Commit after each logical fix
+    validation:
+      - All identified files updated
+      - Acceptance criteria met (e.g. grep confirms old pattern removed)
+
+  - id: record
+    name: Record for Portability
+    depends_on: [fix]
+    agents: []
+    outputs:
+      - artefacts/build/agent-incidents.md (update entry with root cause, fix, commit hash — incident mode)
+      - artefacts/build/tasks-context-framework.md (new task if fix should be ported)
+    notes:
+      - For incident mode: update the incident entry with root cause, fix, and commit hash
+      - If the fix is portable to other repos, append a task to tasks-context-framework.md
+      - Each task must include rationale, file list, and acceptance criteria
+
+quality_gates:
+  - phase: discuss
+    gate: true
+    approval: human
+    mode: retrospective
+
+workflow_rules:
+  - Incident mode: human triggers by reporting an observation
+  - Retrospective mode: run after a deployment, after a sprint, or on demand
+  - Every finding or incident must lead to a fixable gap — no vanity metrics or health scores
+  - Human decides what to fix in retrospective mode; incident mode proceeds on diagnosis
+  - One incident per run in incident mode; multiple findings per run in retrospective mode
+
+state_recovery:
+  after_compaction:
+    - "Re-read context/agents/orchestrator.md and each file in its rules: and standards: frontmatter"
+    - Run git log --oneline -5 to see recent changes
+    - Read HANDOFF.md Phase: field to identify which phase was in flight
+    - Read artefacts/build/agent-incidents.md — latest entry is the active incident (incident mode)

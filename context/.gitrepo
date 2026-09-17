@@ -1,0 +1,12 @@
+; DO NOT EDIT (unless you know what you are doing)
+;
+; This subdirectory is a git "subrepo", and this file is maintained by the
+; git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
+;
+[subrepo]
+	remote = https://github.com/Schmoiger/agents-framework.git
+	branch = main
+	commit = 95fedae2151c6626c04664058df330283f138bc2
+	method = merge
+	cmdver = 0.4.9
+	parent = 9dc61e402ae1ee9216280a13fd4a9322241cdb3a

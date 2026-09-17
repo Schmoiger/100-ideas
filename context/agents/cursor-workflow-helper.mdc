@@ -1,0 +1,112 @@
+# Cursor Multi-Agent Workflow Helper
+
+This rule helps you use the agent definitions from `context/agents/` in Cursor workflows.
+
+## How to Use Agents in Cursor
+
+Since Cursor doesn't have native `@agent-name` syntax like Claude Code, use these patterns:
+
+### Pattern 1: Explicit Role Switching in Composer
+
+When using Cursor Composer, explicitly switch roles:
+
+```
+Acting as the product-owner agent (see context/agents/product-owner.md):
+- Define requirements for [your feature]
+- Output to ./artefacts/requirements.md
+
+Then, acting as the solution-architect agent (see context/agents/solution-architect.md):
+- Design the system architecture
+- Output to ./artefacts/architecture.md
+
+Then, acting as the python-coder agent (see context/agents/python-coder.md):
+- Implement the backend service
+- Output to ./artefacts/python/
+```
+
+### Pattern 2: Reference Agent Files Directly
+
+In your prompt, reference the agent file:
+
+```
+Read context/agents/python-coder.md and act as that agent to implement the auth service.
+```
+
+### Pattern 3: Create Per-Agent Rules
+
+Copy agent definitions to `.cursor/rules/`:
+
+```bash
+# In your project
+mkdir -p .cursor/rules
+cp context/agents/python-coder.md .cursor/rules/python-coder.mdc
+```
+
+Then reference: "Following the python-coder rule, implement..."
+
+## Available Agents
+
+**Phase 0: Discovery**
+- `product-owner.md` - Requirements gathering
+
+**Phase 1: Design**
+- `solution-architect.md` - System architecture
+- `database-designer.md` - Database schema
+- `api-designer.md` - OpenAPI specs
+- `ui-designer.md` - UI wireframes and visual design assets
+
+**Phase 2-3: Development**
+- `python-coder.md` - Python backend
+- `typescript-coder.md` - TypeScript frontend
+
+**Phase 4: Review**
+- `tech-lead.md` - Architecture review (GATE)
+- `code-reviewer.md` - Code review
+
+**Phase 5: Testing**
+- `functional-tester.md` - Unit/integration tests
+- `ui-tester.md` - UI testing
+- `security-tester.md` - Security audit
+
+**Phase 6-7: Deploy & Docs**
+- `gcp-devops.md` - Infrastructure
+- `documentation.md` - Documentation
+
+## Workflow Sequence
+
+Follow the TDD workflow from `context/agents/CLAUDE.md`:
+
+1. **Discovery**: product-owner → requirements.md
+2. **Design**: solution-architect, database-designer, api-designer (parallel)
+3. **Tests First**: functional-tester → write failing tests (TDD RED)
+4. **Development**: python-coder, typescript-coder → make tests pass (TDD GREEN)
+5. **Review**: tech-lead (must approve) → code-reviewer
+6. **Testing**: functional-tester, ui-tester, security-tester (parallel)
+7. **Deploy**: gcp-devops
+8. **Docs**: documentation
+
+## Key Differences from Claude Code
+
+- **No `@agent-name` syntax**: Use explicit role instructions instead
+- **Manual orchestration**: You coordinate agents, not automatic
+- **Same artifacts**: All agents still read/write to `./artefacts/`
+- **Same standards**: Agents inherit from `context/standards/` and `context/rules/`
+
+## Example Composer Session
+
+```
+Step 1: Acting as product-owner (context/agents/product-owner.md)
+Define requirements for a user authentication API.
+
+Step 2: Acting as solution-architect (context/agents/solution-architect.md)
+Design the authentication system architecture.
+
+Step 3: Acting as functional-tester (context/agents/functional-tester.md)
+Write failing tests for the auth API (TDD RED).
+
+Step 4: Acting as python-coder (context/agents/python-coder.md)
+Implement the auth service to make tests pass (TDD GREEN).
+
+Step 5: Acting as tech-lead (context/agents/tech-lead.md)
+Review the implementation for architecture compliance.
+```

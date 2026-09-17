@@ -1,0 +1,140 @@
+name: design
+description: Discovery through design review — run before build workflow
+
+phases:
+  - id: discovery
+    name: Requirements & Planning
+    sequential: true
+    skills:
+      - superpowers:brainstorming
+    agents:
+      - product-expert  # Interview user; produce discovery-notes.md
+      - product-owner   # Formalise discovery-notes.md into requirements.md and user-stories.md
+    outputs:
+      - artefacts/product/
+
+  - id: design-architecture
+    name: Architecture Design
+    depends_on: [discovery]
+    skills:
+      - superpowers:brainstorming
+    agents:
+      - solution-architect  # Output architecture.md, logical API contracts, data-model.md; produce design docs for complex components
+    outputs:
+      - artefacts/architecture/
+      - artefacts/design/  # Design docs for complex components (see design_doc_standard below)
+
+  - id: design-contracts
+    name: Contract & Schema Design
+    depends_on: [design-architecture]
+    parallel: true
+    agents:
+      - database-designer  # Physical schema and migrations from solution-architect's data model
+      - api-designer       # Full OpenAPI spec with HTTP semantics from solution-architect's API contracts
+    outputs:
+      - artefacts/architecture/
+      - artefacts/database/
+
+  - id: design-ui
+    name: UI & Visual Design
+    depends_on: [design-contracts]
+    skills:
+      - frontend-design
+    agents:
+      - ui-designer  # Component specs, design tokens, wireframes, user flows, and visual assets
+    outputs:
+      - artefacts/design/
+      - artefacts/design/visuals/
+
+  - id: design-review
+    name: Design Review Gate
+    depends_on: [design-ui]
+    sequential: true
+    gate: true
+    skills:
+      - superpowers:requesting-code-review
+      - superpowers:receiving-code-review
+    agents:
+      - tech-lead           # Architecture and standards gate; APPROVED unblocks remaining reviewers
+      - code-reviewer       # Implementation feasibility and line-level issues
+      - principles-reviewer # LESS principles compliance
+      - ui-designer         # Design system, visual standards, and UI specs
+      - security-tester     # Architectural security issues
+    outputs:
+      - artefacts/build/
+    validation:
+      - tech-lead must APPROVE before next reviewer
+      - CHANGES REQUIRED → return to design phase
+      - No architectural security issues
+      - Design meets LESS principles
+      - UI and visual design standards met
+      - Every complex component has a design doc in artefacts/design/ meeting the design_doc_standard below
+
+quality_gates:
+  - phase: design-review
+    type: approval
+    required: true
+    description: "Design must be approved before implementation begins: tech-lead → code-reviewer → principles-reviewer → ui-designer → security-tester"
+    criteria:
+      - metric: architecture_blockers
+        threshold: 0
+        operator: "=="
+      - metric: design_security_issues
+        threshold: 0
+        operator: "=="
+
+design_doc_standard:
+  # What makes a complex component? Use judgement: non-trivial state machines, multi-service
+  # data flows, custom algorithms, anything an agent could misinterpret from architecture.md alone.
+  purpose:
+    - Provide sufficient context for an agent to build the component correctly
+    - Provide sufficient context for a human reviewer to evaluate it
+  must_include:
+    - Component purpose and responsibility (one paragraph)
+    - Data flow with sequence diagram(s) showing all participants and message order
+    - Key design decisions and the reasoning behind them
+    - Where this component extends or supersedes a project standard — and why
+    - Error handling and edge cases specific to this component
+    - Interfaces: inputs, outputs, and contracts with other components
+  must_not_include:
+    - Planning artefacts or sprint notes
+    - Repetition of project-wide standards (reference them; do not copy them)
+    - Implementation details that belong in code comments
+  format:
+    - Diagrams required (Mermaid sequence diagrams preferred)
+    - Prose should be minimal and precise — not explanatory padding
+    - Deviations from standards must be explicit: "This component supersedes X because Y"
+  location: artefacts/design/{component-name}.md
+
+workflow_rules:
+  - Use Write/Edit tools for file operations (not bash with echo/cat/sed)
+  - "Python: `uv add` / `uv run` — never pip"
+  - "TypeScript: `yarn add` / `yarn dlx` — never npm / npx"
+  - Estimate effort in tokens, not time
+  # Compaction safety
+  - Subagents write artefacts incrementally — never accumulate in memory and flush at end
+  - Update HANDOFF.md Phase: field BEFORE spawning agents
+  - For the parallel design-contracts phase, log each agent's output scope in HANDOFF.md before spawning
+  - database-designer owns artefacts/database/; api-designer owns artefacts/architecture/openapi.yaml — disjoint by default
+
+state_recovery:
+  after_compaction:
+    - "Re-read context/agents/orchestrator.md and each file in its rules: and standards: frontmatter"
+    - Run git log --oneline -5 to see recent changes
+    - Read HANDOFF.md Phase: field to identify which phase was in flight
+    - Read artefacts/product/requirements.md for the requirements being designed against
+    - Read artefacts/architecture/architecture.md if it exists — the solution-architect's output
+  critical_files:
+    - artefacts/build/HANDOFF.md
+    - artefacts/product/requirements.md
+    - artefacts/architecture/architecture.md
+
+# ---
+# Notes (human reference)
+#
+# PHASE DEPENDENCIES:
+#   discovery → design-architecture → design-contracts (parallel: database-designer + api-designer)
+#   → design-ui → design-review (sequential: tech-lead → code-reviewer → ...)
+#
+# design-review is a gate: CHANGES REQUIRED returns to the appropriate design phase.
+# Output: artefacts/product/, artefacts/architecture/, artefacts/database/, artefacts/design/

@@ -1,0 +1,5 @@
+feat(data-service): add yfinance integration
+
+Implement data fetching from Yahoo Finance API.
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>

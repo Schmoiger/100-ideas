@@ -1,0 +1,537 @@
+name: build
+description: Subtask planning through local deployment — primary development loop
+
+phases:
+  - id: task-planning
+    name: Subtask Planning
+    gate: true
+    agents:
+      - tech-lead  # Decompose sprint tasks into subtasks with ACs, context bundles, and stream assignments
+    outputs:
+      - artefacts/build/subtask-plan.yaml
+    validation:
+      - Every subtask has a command-verifiable AC (exact command + expected output)
+      - Context bundles are minimal — only files the subtask agent must read
+      - Subtasks assigned to streams (python / typescript) for parallel execution
+      - No subtask spans more than one module or component
+      - Every subtask declares file_scope; parallel subtasks have disjoint scopes
+      - max_retries set per subtask (default 2)
+    notes:
+      - Output schema defined in subtask_execution.schema below
+      - Prefer line-range references in context_files to reduce agent context size
+
+  - id: tasks-review
+    name: Tasks Plan Review
+    depends_on: [task-planning]
+    parallel: true
+    gate: true
+    skills:
+      - superpowers:writing-plans
+      - superpowers:dispatching-parallel-agents
+    agents:
+      - tech-lead           # Architecture compliance, API contracts, functional smoke-check on subtask plan
+      - solution-architect  # Service boundary traces; flag missing inter-service contracts
+      - principles-reviewer # LESS principles on subtask plan
+    outputs:
+      - artefacts/build/tech-review.md
+      - artefacts/build/architect-review.md
+      - artefacts/build/principles-review.md
+    validation:
+      - All three agents run in parallel and must complete before Sprint 1 begins
+      - tech-lead CHANGES REQUIRED → blockers must be fixed in subtask plan
+      - solution-architect CHANGES REQUIRED → pipeline disconnects and missing contracts must be addressed
+      - principles-reviewer CONCERNS RAISED → blockers resolved; concerns added to "Potential Further Work"
+      - Non-blocker findings documented in tasks document "Potential Further Work" section
+      - Review artefacts archived to artefacts/build/archive/ after fixes are applied
+    notes:
+      - Primary input is artefacts/build/subtask-plan.yaml; also read tasks.md, architecture.md, requirements.md
+
+  - id: schema-migration
+    name: Schema Migration
+    depends_on: [tasks-review]
+    agents:
+      - devops  # Write migration files, apply to local instance, verify schema matches expected state
+    outputs:
+      - Migration files in supabase/migrations/ or equivalent
+      - artefacts/build/schema-migration-log.md
+    validation:
+      - Migration files written with verifiable AC (query returns expected schema)
+      - Migrations applied successfully to local instance
+      - Schema verified against expected state (AC command passes)
+      - Rollback migration documented
+    notes:
+      - devops operates in local mode for this phase (see context/agents/devops.md)
+      - Migration files are the "implementation" — AC is the schema assertion, not passing tests
+      - Skip this phase if the sprint has no schema changes
+
+  - id: tdd-red
+    name: "TDD Red: Write Failing Tests"
+    depends_on: [schema-migration]
+    skills:
+      - superpowers:test-driven-development
+    agents:
+      - functional-tester  # Write failing tests for all ACs; happy path, error path, edge cases
+    outputs:
+      - tests/
+    validation:
+      - All tests must fail initially
+      - Tests cover all acceptance criteria listed in the task
+      - Edge cases, happy path, error path, and boundary conditions represented
+    notes:
+      - Use Write/Edit tools for test files, not bash
+      - "Python: uv run pytest"
+      - "TypeScript: yarn test"
+
+  - id: test-plan-review
+    name: Test Plan Review
+    depends_on: [tdd-red]
+    skills:
+      - superpowers:test-driven-development
+    agents:
+      - code-reviewer  # Verify every AC maps to a failing test; APPROVED unblocks tdd-green
+    outputs:
+      - artefacts/test-results/test-plan/
+    validation:
+      - Every acceptance criterion from the task has at least one corresponding failing test
+      - Happy path, error path, and boundary conditions are all represented
+      - Test names clearly describe the behaviour under test
+      - REVISE tests if any acceptance criterion is uncovered — return to tdd-red
+      - PROCEED only when all criteria are covered by failing tests
+    notes:
+      - Qualitative review only — no coverage tools at this stage
+      - Review tests against acceptance criteria in artefacts/build/tasks.md
+
+  - id: tdd-green
+    name: "TDD Green: Implement to Pass Tests"
+    depends_on: [test-plan-review]
+    parallel: true
+    skills:
+      - superpowers:test-driven-development
+      - superpowers:dispatching-parallel-agents
+      - frontend-design
+      - superpowers:verification-before-completion
+      - superpowers:systematic-debugging
+    agents:
+      - python-coder      # Minimal Python to pass tests; no refactoring yet
+      - typescript-coder  # Minimal TypeScript/React to pass tests; no refactoring yet
+    outputs:
+      - Source code
+      - Tests passing
+    validation:
+      - All tests must pass
+      - No test modifications allowed
+    notes:
+      - Use Write/Edit tools for code files, not bash
+      - "Python: uv add / uv run"
+      - "TypeScript: yarn add / yarn dlx"
+
+  - id: coverage-gate
+    name: "Coverage Gate (Changed Files >= 95%)"
+    depends_on: [tdd-green]
+    gate: true
+    skills:
+      - superpowers:verification-before-completion
+      - superpowers:systematic-debugging
+    agents:
+      - functional-tester  # Run coverage on changed files; fail gate if <95%
+    outputs:
+      - artefacts/test-results/coverage/
+    validation:
+      - Coverage >= 95% on all changed/new files
+      - If any changed file is below 95% → return to tdd-red to add tests
+      - Scope limited to changed/new modules (not full codebase)
+    notes:
+      - "Python: uv run pytest --cov={changed-module} --cov-report=term-missing"
+      - "TypeScript: yarn test --run --coverage {changed-component}.test.ts"
+      - Return to tdd-red if threshold not met — tests fix belongs in RED, not GREEN/BLUE
+      - Document coverage results in artefacts/test-results/coverage/
+
+  - id: tdd-blue
+    name: "TDD Blue: Refactor"
+    depends_on: [coverage-gate]
+    parallel: true
+    skills:
+      - superpowers:test-driven-development
+      - superpowers:dispatching-parallel-agents
+      - superpowers:verification-before-completion
+    agents:
+      - python-coder      # Refactor Python; no new behaviour; tests must stay green
+      - typescript-coder  # Refactor TypeScript; no new behaviour; tests must stay green
+    outputs:
+      - Refactored code
+      - Tests still passing
+    validation:
+      - All tests must still pass
+      - Code quality improved (reduced duplication, better naming, clearer structure)
+      - No new functionality added
+    notes:
+      - Use Write/Edit tools for code files, not bash
+
+  - id: sprint-review
+    name: "Per-Sprint Review"
+    depends_on: [tdd-blue]
+    parallel: true
+    skills:
+      - superpowers:dispatching-parallel-agents
+      - superpowers:requesting-code-review
+      - superpowers:receiving-code-review
+    agents:
+      - code-reviewer   # MUST FIX / SHOULD FIX findings → Pre-Sprint N+1
+      - ui-tester       # Browser automation, screenshots, accessibility
+      - security-tester # OWASP, auth, CVEs; findings → Pre-Sprint N+1
+    outputs:
+      - artefacts/test-results/e2e/screenshots/
+      - Pre-sprint findings (carried to next sprint's Pre-Sprint section)
+    validation:
+      - No MUST FIX items blocking next sprint
+      - SHOULD FIX items documented and assigned to next sprint's Pre-Sprint section
+      - ui-tester commits at least one screenshot per new UI surface
+    notes:
+      - "@tech-lead does NOT run per-sprint"
+
+  - id: local-deployment
+    name: Local Deployment
+    depends_on: [sprint-review]
+    skills:
+      - superpowers:verification-before-completion
+    agents:
+      - devops  # Apply schema changes, deploy local services, smoke test, document rollback
+    outputs:
+      - artefacts/build/local-deployment-log.md
+    validation:
+      - Schema migrations applied successfully
+      - Local services deployed (if changed)
+      - Smoke test passes
+      - Rollback steps documented
+
+  - id: unit-regression
+    name: "Unit Regression (Changed Modules)"
+    depends_on: [local-deployment]
+    skills:
+      - superpowers:verification-before-completion
+    agents:
+      - functional-tester  # Full pytest/vitest on changed modules; confirm >=95% coverage
+    scope: changed-modules
+    outputs:
+      - artefacts/test-results/unit/
+    validation:
+      - Coverage >= 95% on changed/new modules
+      - All edge cases for changed modules tested
+      - Full test suite still passes (no regressions in unchanged code)
+    notes:
+      - "Python: uv run pytest tests/unit/{changed-modules}"
+      - "TypeScript: yarn test --run {changed-modules}/**/*.test.ts"
+
+  - id: integration-regression
+    name: "Integration Regression (Changed Interfaces)"
+    depends_on: [unit-regression]
+    skills:
+      - superpowers:verification-before-completion
+      - superpowers:systematic-debugging
+    agents:
+      - functional-tester  # API contract and boundary tests for changed interfaces
+    scope: changed-interfaces
+    outputs:
+      - artefacts/test-results/integration/
+    validation:
+      - API contracts verified for changed endpoints
+      - Service interactions tested for changed module boundaries
+      - Database migrations validated if schema changed
+    notes:
+      - Scope is limited to interfaces involving changed modules
+
+  - id: e2e-regression
+    name: "E2E Regression (Changed Workflows)"
+    depends_on: [integration-regression]
+    parallel: true
+    skills:
+      - superpowers:verification-before-completion
+      - superpowers:requesting-code-review
+    agents:
+      - ui-tester      # Browser test of changed workflows; screenshots required
+      - code-reviewer  # Trace each happy path from button press to backend effect; compare against design artefacts and sequence diagrams
+    scope: changed-workflows
+    outputs:
+      - artefacts/test-results/e2e/
+      - artefacts/test-results/e2e/screenshots/
+      - artefacts/test-results/e2e/design-compliance.md
+    validation:
+      - At least one screenshot per changed user workflow
+      - Browser interactions documented (not just API calls)
+      - Changed user workflows tested end-to-end
+      - No regressions in unchanged adjacent workflows
+      - All happy paths traced end-to-end (UI event → handler → API → service → DB) and each matches its sequence diagram
+      - Implementation matches artefacts/design/ and artefacts/architecture/ (wireframes, component specs, sequence diagrams)
+      - Deviations from design documented in design-compliance.md
+    notes:
+      - "REQUIRED: Screenshots in artefacts/test-results/e2e/screenshots/"
+      - Test log must show browser interactions, not just API calls
+      - code-reviewer reads artefacts/design/ and artefacts/architecture/ for comparison
+      - "RECOMMENDED: Automated visual diff checking (see tech-standards.md for Puppeteer + pixelmatch)"
+
+  - id: docs-cleanup
+    name: Documentation Cleanup
+    depends_on: [e2e-regression]
+    agents:
+      - documentation  # Archive superseded artefacts; update README, API docs, HANDOFF.md
+    outputs:
+      - README.md updates
+      - artefacts/ cleanup
+      - API documentation
+    validation:
+      - Old documentation archived (not deleted)
+      - All documentation follows doc-standards.md
+      - README.md updated with current information
+      - API documentation complete and accurate
+      - build/tasks.md reflects current status
+      - HANDOFF.md includes final handoff entry
+
+  - id: quality-review
+    name: Quality Review Gate
+    depends_on: [docs-cleanup]
+    gate: true
+    skills:
+      - superpowers:requesting-code-review
+      - superpowers:receiving-code-review
+    agents:
+      - tech-lead  # Code and docs quality gate; APPROVED unblocks final-holistic-review
+    outputs:
+      - artefacts/build/
+    validation:
+      - All sprint tests pass; aggregate coverage >= 95% on new/changed files
+      - Documentation is accurate, complete, and matches as-built system
+      - No TypeScript any or biome-ignore/eslint-disable without justification
+      - No console.log, TODO, or FIXME in production code
+      - Pre-commit hooks pass cleanly on all new files
+      - APPROVED or CHANGES REQUIRED verdict with rationale
+
+  - id: final-holistic-review
+    name: Final Holistic Review
+    depends_on: [quality-review]
+    parallel: true
+    gate: true
+    skills:
+      - superpowers:dispatching-parallel-agents
+      - superpowers:requesting-code-review
+      - superpowers:receiving-code-review
+    agents:
+      - solution-architect  # Architecture coherence at full-feature scale
+      - tech-lead           # Aggregate test health and pre-commit hooks clean
+      - ui-designer         # End-to-end design system consistency
+      - principles-reviewer # LESS principles on completed implementation
+    outputs:
+      - artefacts/build/
+    validation:
+      - All four agents must APPROVE
+      - CHANGES REQUIRED from any agent → return to appropriate phase
+      - Architecture coherent and maintainable
+      - Visual design system consistent end-to-end
+      - LESS principles met; no unnecessary abstractions
+
+
+quality_gates:
+  - phase: tasks-review
+    type: approval
+    required: true
+    description: "Sprint plan reviewed in parallel by tech-lead + solution-architect + principles-reviewer. All blockers must be resolved before Sprint 1 begins."
+    criteria:
+      - metric: architecture_blockers
+        threshold: 0
+        operator: "=="
+      - metric: pipeline_disconnects
+        threshold: 0
+        operator: "=="
+      - metric: principles_blockers
+        threshold: 0
+        operator: "=="
+
+  - phase: coverage-gate
+    type: automated
+    required: true
+    description: "Automated coverage check after GREEN. Scope: changed/new files only. Fails → return to tdd-red."
+    criteria:
+      - metric: test_coverage_changed_files
+        threshold: 95
+        operator: ">="
+        phase_note: "95% on changed/new files only. Return to tdd-red if not met."
+
+  - phase: quality-review
+    type: approval
+    required: true
+    description: "@tech-lead only. Runs after docs sprint. Covers code quality AND documentation quality."
+    criteria:
+      - metric: test_coverage
+        threshold: 95
+        operator: ">="
+        phase_note: "95% aggregate on new/changed files."
+      - metric: documentation_accurate
+        threshold: true
+        operator: "=="
+      - metric: no_production_debug_artefacts
+        threshold: true
+        operator: "=="
+        phase_note: "No console.log, TODO, FIXME, or unjustified biome-ignore/eslint-disable"
+
+  - phase: final-holistic-review
+    type: approval
+    required: true
+    description: "All four reviewers in parallel: solution-architect + tech-lead + ui-designer + principles-reviewer."
+    criteria:
+      - metric: architecture_blockers
+        threshold: 0
+        operator: "=="
+      - metric: critical_security_issues
+        threshold: 0
+        operator: "=="
+      - metric: ui_screenshots
+        threshold: 1
+        operator: ">="
+      - metric: less_principles_violations
+        threshold: 0
+        operator: "=="
+
+workflow_rules:
+  # TDD discipline
+  - Tests written before implementation (TDD Red → Green → Blue)
+  - No test modifications during tdd-green or tdd-blue phases
+  - Coverage gate (95% on changed files) checked after GREEN — return to RED if failing
+  # Subtask execution
+  - Implementation phases (tdd-red, tdd-green, tdd-blue) run as subtasks per subtask-plan.yaml
+  - Orchestrator spawns one agent per subtask; agents report back before next subtask is spawned
+  - Agents read only their context_files bundle — do not re-read full codebase or all standards
+  - Orchestrator handles level-1 loop escalation; user handles level-2
+  # Agent placement
+  - "@tech-lead does NOT run per-sprint; runs in task-planning, tasks-review, quality-review, final-holistic-review"
+  - "@principles-reviewer runs in tasks-review and final-holistic-review only"
+  - Regression testing runs ONCE after all code sprints complete (not per sprint)
+  # Tooling
+  - Use Write/Edit tools for file operations (not bash with echo/cat/sed)
+  - "Python: `uv add` / `uv run` — never pip"
+  - "TypeScript: `yarn add` / `yarn dlx` — never npm / npx"
+  - UI tests must include screenshots and browser interactions
+  # Hygiene
+  - Update artefacts/build/tasks.md and HANDOFF.md after completing work
+  - Estimate effort in tokens, not time
+  - After context compaction, read state recovery section and update status
+  - All quality gates must pass
+  # Compaction safety
+  - Subagents write findings incrementally to their output file — never accumulate in memory and flush at end
+  - Commit after each completed subtask — git log is the recovery point if compaction occurs between steps
+  - Update HANDOFF.md Phase: field BEFORE spawning agents — not after their response — so the active phase survives compaction
+  - For parallel dispatches, write artefacts/build/dispatch.md before spawning, recording each agent's subtask ID, file_scope, and acceptance criterion
+  - After compaction, recover by reading HANDOFF.md (phase) and the workflow validation: block (criteria) — do not rely on recalled instructions
+
+state_recovery:
+  after_compaction:
+    - "Re-read context/agents/orchestrator.md and each file in its rules: and standards: frontmatter"
+    - Glob **/artefacts/README.md and read all matches for current state
+    - Run git log --oneline -5 to see recent changes
+    - Read HANDOFF.md Phase: field to identify which phase was in flight
+    - Read the validation: block for that phase in this file — that is what any pending subagent report must satisfy
+    - Read artefacts/build/dispatch.md if it exists — lists what each in-flight agent was asked to do
+    - Read artefacts/build/subtask-plan.yaml — check status: fields to see which subtasks completed vs pending
+  critical_files:
+    - "**/artefacts/README.md"
+    - artefacts/build/HANDOFF.md
+    - artefacts/build/dispatch.md
+    - artefacts/build/subtask-plan.yaml
+
+estimation_guidance:
+  - Estimate effort in tokens, not time
+  - "Token ranges: Small (10-30k), Medium (30-80k), Large (80-150k), XLarge (150k+)"
+  - Consider context duplication when estimating parallel work
+  - Factor in coordination overhead for multi-agent tasks
+
+parallel_planning:
+  - Always spawn parallel agents simultaneously — do NOT present options or ask for preference
+  - All phases marked parallel: true spawn their agents in the same message
+  - Identify dependencies before spawning; only sequential when one output feeds another's input
+  - "Scope-collision check (before every parallel dispatch):"
+  - "  1. List each agent's file_scope from subtask-plan.yaml"
+  - "  2. Reject if any path appears in more than one agent's scope"
+  - "  3. Shared paths (migrations/, shared-types/) → sequence those subtasks or assign one owner"
+  - "  4. Log the verified scope matrix in HANDOFF.md before spawning"
+
+subtask_execution:
+  # Applies to tdd-red, tdd-green, tdd-blue. Each task in subtask-plan.yaml is one agent invocation.
+  model:
+    intra-stream: sequential   # subtasks within a stream (python or typescript) run one at a time
+    inter-stream: parallel     # python and typescript streams run simultaneously
+  context:
+    load: subtask.context_files only   # agents read ONLY the files listed in their subtask bundle
+    standards: injected-by-orchestrator  # orchestrator inlines relevant rules; agents do not re-read all standards
+  loop_detection:
+    same_failure_threshold: 2  # consecutive identical failure states before escalation
+    level_1:
+      trigger: first failure (AC not met)
+      action: orchestrator diagnoses failure report, augments context bundle, re-spawns once
+    level_2:
+      trigger: second consecutive failure after level-1 intervention
+      action: suspend sprint, escalate to user with failure summary and suggested fix; await instruction
+  tool_scope:
+    tdd-red:
+      allowed: [Read, Glob, Grep, Write, Edit, Bash]
+      bash_allowlist:
+        - "uv run pytest --collect-only"
+        - "uv run pytest {test_file}"
+        - "yarn test --listTests"
+        - "yarn test {test_file}"
+    tdd-green:
+      allowed: [Read, Glob, Grep, Write, Edit, Bash]
+      bash_allowlist:
+        - "uv run pytest {test_file}"
+        - "uv run python -m py_compile {file}"
+        - "yarn test {test_file}"
+        - "yarn tsc --noEmit"
+    tdd-blue:
+      allowed: [Read, Glob, Grep, Edit, Bash]  # Write removed: no new files during refactor
+      bash_allowlist:
+        - "uv run pytest {test_file}"
+        - "yarn test {test_file}"
+  reporting:
+    on_ac_met:
+      - mark subtask complete in artefacts/build/subtask-plan.yaml
+      - append one-line summary to HANDOFF.md
+      - report to orchestrator: COMPLETE + evidence (exact command output)
+    on_ac_not_met:
+      - report to orchestrator: FAILED + failure evidence (exact command output)
+      - do NOT retry independently; orchestrator decides next action
+  schema:
+    # Template for artefacts/build/subtask-plan.yaml
+    # sprint: <n>
+    # streams:
+    #   python:
+    #     - id: <phase>-py-<n>
+    #       phase: tdd-red | tdd-green | tdd-blue
+    #       agent: functional-tester | python-coder
+    #       description: <what to do>
+    #       acceptance_criteria: <exact command> → <expected output pattern>
+    #       context_files:
+    #         - <path>:<line-range>   # use ranges for large files
+    #       file_scope:              # paths this subtask may write/commit — must be disjoint across parallel subtasks
+    #         - <path>
+    #       max_retries: 2
+    #       depends_on: []           # other subtask ids within this stream
+    #   typescript:
+    #     - id: <phase>-ts-<n>
+    #       ...same structure...
+
+# ---
+# Notes (human reference)
+#
+# SPRINT LOOP (repeat per sprint):
+#   tdd-red → test-plan-review → tdd-green → coverage-gate → tdd-blue → sprint-review
+#   Each of tdd-red/green/blue runs as subtasks per subtask-plan.yaml (see subtask_execution)
+#
+# FULL PIPELINE:
+#   task-planning → tasks-review → schema-migration →
+#   [sprint loop × N] →
+#   local-deployment → unit-regression → integration-regression → e2e-regression →
+#   docs-cleanup → quality-review → final-holistic-review
+#
+# Regression runs ONCE after all code sprints complete (changed modules/interfaces/workflows only).
+# For full-suite regression use full-test.yaml.
+# For GCP cloud deployment use deploy.yaml after local-deployment.
+#
+# Coverage thresholds: 95% per-sprint gate · 95% quality-review
+# Quality gates: tasks-review · coverage-gate · quality-review · final-holistic-review

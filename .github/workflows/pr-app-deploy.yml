@@ -1,0 +1,92 @@
+name: PR App Deploy
+
+on:
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - "context/**"
+      - "typst/**"
+      - ".github/workflows/pr-subrepo-*.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target deployment environment"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+
+concurrency:
+  group: app-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  app-deploy:
+    name: Deploy Application
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Resolve Target Environment
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            TARGET="${{ github.event.inputs.environment }}"
+          else
+            TARGET="staging"
+          fi
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "Selected deployment environment: $TARGET"
+
+      - name: Build Application Artifacts (Template)
+        run: |
+          echo "=== [Template] Application Build Step ==="
+          echo "Configure your build commands here, for example:"
+          echo "  - Docker build / container packaging"
+          echo "  - yarn build / next build / vite build"
+          echo "  - uv build / python packaging"
+
+      - name: Authenticate to Cloud Provider (Template)
+        run: |
+          echo "=== [Template] Cloud Authentication ==="
+          echo "Configure OIDC / Workload Identity Federation, e.g.:"
+          echo "  - uses: google-github-actions/auth@v2"
+          echo "  - uses: aws-actions/configure-aws-credentials@v4"
+
+      - name: Deploy to Cloud Environment (Template)
+        run: |
+          echo "=== [Template] Deploying to ${{ steps.env.outputs.target }} ==="
+          echo "Configure service deployment commands here, e.g.:"
+          echo "  - gcloud run deploy ... --image ... (GCP Cloud Run)"
+          echo "  - firebase deploy --only hosting (Firebase Hosting)"
+          echo "  - terraform apply (Infrastructure)"
+
+      - name: Post-Deployment Health Check (Template)
+        run: |
+          echo "=== [Template] Health Check ==="
+          echo "Verifying health endpoint for ${{ steps.env.outputs.target }}..."
+          echo "HTTP 200 OK (simulated)"
+
+      - name: Generate Deployment Summary
+        if: always()
+        run: |
+          cat << 'EOF' >> $GITHUB_STEP_SUMMARY
+          ### 🚀 Application Deployment Summary
+
+          | Property | Value |
+          |---|---|
+          | **Environment** | `${{ steps.env.outputs.target }}` |
+          | **Trigger Event** | `${{ github.event_name }}` |
+          | **Commit SHA** | `${{ github.sha }}` |
+          | **Ref** | `${{ github.ref_name }}` |
+          | **Status** | ✅ Template Executed Successfully |
+
+          > 💡 **Next Steps**: Update `.github/workflows/pr-app-deploy.yml` with your cloud credentials, build artifacts, and deployment targets (e.g. Cloud Run, Firebase, or Terraform).
+          EOF

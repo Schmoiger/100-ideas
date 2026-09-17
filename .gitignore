@@ -1,0 +1,72 @@
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editors/IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Env files (see .env.template for reference)
+.env
+.env.*
+!.env.template
+!.env.example
+
+# Local Make overrides (see local.mk.example)
+local.mk
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+*.egg
+.venv/
+
+# Python tooling & coverage
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage/
+htmlcov/
+
+# Build artefacts
+/build/
+dist/
+
+# Logs
+*.log
+
+# Yarn Berry with node-modules linker
+node_modules/
+.yarn/
+
+# TypeScript
+*.tsbuildinfo
+
+# Agent thinking artefacts
+docs/superpowers/
+
+# Sensitive agent configs
+context/mcp/mcp.json
+
+# Generated docs (typst outputs)
+typst/**/*.pdf
+
+# Script artefacts
+context/scripts/uv.lock
+
+# Programmatically generated agent skills
+.agents/skills/
+.claude/prompts/
+.github/instructions/
+.github/prompts/
+.github/copilot-instructions.md
+.openai/prompts/
+CLAUDE.md
+GEMINI.md
+AGENTS.md

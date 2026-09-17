@@ -1,0 +1,51 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bats:*)",
+      "Bash(claude mcp:*)",
+      "Bash(diff:*)",
+      "Bash(du:*)",
+      "Bash(git add:*)",
+      "Bash(git branch:*)",
+      "Bash(git checkout:*)",
+      "Bash(git commit:*)",
+      "Bash(git diff:*)",
+      "Bash(git fetch:*)",
+      "Bash(git log:*)",
+      "Bash(git ls-files:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(git merge:*)",
+      "Bash(git mv:*)",
+      "Bash(git pull:*)",
+      "Bash(git push:*)",
+      "Bash(git reset:*)",
+      "Bash(git revert:*)",
+      "Bash(git rm:*)",
+      "Bash(git show:*)",
+      "Bash(git status:*)",
+      "Bash(ls:*)",
+      "Bash(rsync:*)",
+      "Bash(test:*)",
+      "Bash(tree:*)",
+      "Bash(uv add:*)",
+      "Bash(uv lock:*)",
+      "Bash(uv remove:*)",
+      "Bash(uv run:*)",
+      "Bash(uv sync:*)",
+      "Bash(uvx:*)",
+      "Bash(wc:*)",
+      "Bash(xargs:*)",
+      "Bash(yarn:*)",
+      "Bash(yarn add:*)",
+      "Bash(yarn dlx:*)",
+      "Bash(yarn install:*)",
+      "Bash(yarn run:*)",
+      "Bash(yarn test:*)",
+      "WebSearch"
+    ],
+    "deny": [
+      "Bash(pip:*)",
+      "Bash(pip3:*)"
+    ]
+  }
+}

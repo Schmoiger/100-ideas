@@ -1,0 +1,203 @@
+name: bugfix
+description: Empirical bug reproduction, fix, and verification — with a commit as the record
+
+phases:
+  - id: reproduce
+    name: Reproduce Bug
+    gate: true
+    parallel: true
+    skills:
+      - superpowers:systematic-debugging
+      - superpowers:dispatching-parallel-agents
+    agents:
+      - ui-tester          # Reproduce in browser using Chrome DevTools; capture screenshot and console errors
+      - functional-tester  # Run existing test suite to establish baseline; identify which tests fail (if any)
+    outputs:
+      - artefacts/bugfix/reproduce-evidence.md
+      - artefacts/bugfix/screenshots/before/
+    validation:
+      - ui-tester provides a screenshot showing the bug reproduced in the running system
+      - ui-tester documents console errors, network failures, or unexpected UI state
+      - functional-tester documents baseline test results (pass/fail counts, which tests fail)
+      - reproduce-evidence.md contains a Causal Chain section tracing symptom → handler → function → data source → root cause
+      - Every step in the causal chain cites file:line from Read or Grep output
+      - GATE BLOCKS if bug cannot be reproduced — escalate to user with investigation findings
+      - GATE BLOCKS if causal chain has any step unsupported by a code citation — names are not evidence
+    notes:
+      - Both agents run in parallel; gate requires evidence from both before proceeding
+      - Do NOT fix anything in this phase — reproduce only
+      - Supabase MCP available for DB state inspection if relevant
+      - "REQUIRED: Screenshot in artefacts/bugfix/screenshots/before/"
+      - "Causal chain format: 'UI shows X → endpoint Y returns Z [file:line] → function W computes it as V [file:line] → root cause: [file:line]'"
+      - "Names are not evidence. A column named silver_populated does not tell you how it is computed. A filename does not tell you what the function does. Read the code."
+      - "Incremental writes: append each causal chain step to reproduce-evidence.md as it is verified — do not hold the chain in memory and flush at the end"
+
+  - id: fix
+    name: Implement Fix
+    depends_on: [reproduce]
+    skills:
+      - superpowers:systematic-debugging
+      - superpowers:test-driven-development
+      - superpowers:verification-before-completion
+    agents:
+      - functional-tester  # Write failing test that reproduces the bug (TDD Red) before any code change
+      - python-coder        # Fix Python/backend code; run tests to green
+      - typescript-coder    # Fix TypeScript/frontend code; run tests to green
+    outputs:
+      - Failing test (written first, before code fix)
+      - Source code fix
+      - Data migration or seed fix (if data is corrupt or schema is wrong)
+      - Doc fix (if behaviour change affects user-facing or API docs)
+      - One commit per logical unit of change
+    validation:
+      - functional-tester writes a failing test that reproduces the bug before any code is changed — test must fail first
+      - Code fix makes the failing test pass — do not modify the test to pass
+      - All tests that were passing before the fix still pass (no regressions)
+      - Data fixes applied if the bug produced corrupt or incorrect persisted data
+      - Docs updated if the fix changes observable behaviour
+      - Each commit message includes the causal chain from reproduce-evidence.md and what was changed
+    notes:
+      - "TDD Red → Green for bug fixes: failing test expresses correct behaviour → fix code to pass it"
+      - "The failing test is written against the correct behaviour (requirement), not the buggy implementation"
+      - "Spawn functional-tester first; spawn python-coder and/or typescript-coder after the failing test exists"
+      - Spawn only the coder(s) relevant to the bug location
+      - "Python: uv run pytest — never bare pytest"
+      - "TypeScript: yarn test --run"
+      - Data fixes: use Supabase MCP or migration file depending on scope
+      - Commit message is the record — see workflow_rules for required content
+      - "Incremental commits: commit the failing test before writing any code fix — if compaction occurs between steps, git log shows what exists and what remains"
+
+  - id: verify
+    name: Verify Fix in Running System
+    depends_on: [fix]
+    gate: true
+    parallel: true
+    skills:
+      - superpowers:systematic-debugging
+      - superpowers:dispatching-parallel-agents
+      - superpowers:verification-before-completion
+    agents:
+      - ui-tester          # Confirm fix in browser using Chrome DevTools; screenshot required
+      - functional-tester  # Run full test suite; confirm no regressions introduced
+    outputs:
+      - artefacts/bugfix/screenshots/after/
+      - artefacts/bugfix/verify-evidence.md
+    validation:
+      - ui-tester provides a screenshot showing the bug is fixed in the running system
+      - ui-tester confirms no console errors or network failures related to the bug
+      - functional-tester confirms all tests pass including the new regression test
+      - verify-evidence.md records before/after comparison referencing screenshots
+      - GATE BLOCKS if bug is not fixed or regressions introduced — return to fix phase
+    notes:
+      - Tests passing is necessary but NOT sufficient — browser evidence is required
+      - "REQUIRED: Screenshot in artefacts/bugfix/screenshots/after/"
+      - ui-tester must interact with the actual running system, not just inspect code
+      - If regressions detected, return to fix phase with specific failure evidence
+
+
+quality_gates:
+  - phase: reproduce
+    type: evidence
+    required: true
+    description: "Bug must be empirically reproduced with browser screenshot and a code-cited causal chain before any fix is attempted."
+    criteria:
+      - metric: reproduce_screenshot
+        threshold: 1
+        operator: ">="
+        phase_note: "At least one screenshot showing the bug in the running system"
+      - metric: causal_chain_documented
+        threshold: true
+        operator: "=="
+        phase_note: "Every step in symptom → root cause chain cites file:line from Read/Grep output"
+      - metric: no_metadata_inference
+        threshold: true
+        operator: "=="
+        phase_note: "No step in the chain infers behaviour from names (column, file, function, module) without reading the code"
+
+  - phase: verify
+    type: evidence
+    required: true
+    description: "Fix must be empirically confirmed in the running system with browser screenshot — tests passing alone is not sufficient."
+    criteria:
+      - metric: verify_screenshot
+        threshold: 1
+        operator: ">="
+        phase_note: "At least one screenshot showing the fix working in the running system"
+      - metric: regression_test_passes
+        threshold: true
+        operator: "=="
+        phase_note: "The failing test written in fix phase now passes"
+      - metric: no_new_regressions
+        threshold: true
+        operator: "=="
+        phase_note: "All tests passing before fix must still pass after fix"
+
+
+workflow_rules:
+  # Causal chain discipline
+  - Root cause must be a causal chain: symptom → handler → function → data source → root cause; every step cites file:line
+  - Names are not evidence — a column name, filename, function name, or module title describes intent not implementation
+  - "Anti-pattern: inferring what code does from what it is called, rather than reading the lines that execute"
+  - reproduce-evidence.md Causal Chain section must be complete before the reproduce gate passes
+  # Empirical verification
+  - Browser evidence (screenshot + console state) required at reproduce and verify gates — tests alone do not satisfy gates
+  - Agents must use Chrome DevTools MCP to inspect the actual running system, not reason from code
+  - Supabase MCP available for DB state inspection when relevant
+  # TDD discipline for bug fixes
+  - "TDD Red → Green: write a failing test that reproduces the bug BEFORE any code change; fix the code to make it pass"
+  - The failing test expresses correct behaviour (the requirement); it does not describe the buggy code
+  - Do not modify tests to make them pass — fix the code
+  - Data fixes and doc fixes are part of the same fix, not deferred
+  # Record-keeping
+  - The commit message is the record — no separate requirement-gap artefact needed
+  - "Commit body must include: (1) what the bug was, (2) causal chain summary, (3) what was changed (code/test/data/docs) and why"
+  - A good commit can be discovered later via git log; an artefact doc usually cannot
+  # Tooling
+  - "Python: `uv run pytest` — never bare pytest"
+  - "TypeScript: `yarn test --run` — never bare jest/vitest"
+  - Screenshots saved to artefacts/bugfix/screenshots/before/ and after/
+  # Compaction safety
+  - Subagents write findings incrementally to their output file as each step completes — never accumulate in memory and flush at end
+  - Commit the failing test before writing any code fix — git log is the recovery point if the agent compacts between steps
+  - Update HANDOFF.md Phase: field BEFORE spawning agents — not after their response — so the active phase survives compaction
+  - For the parallel reproduce phase, write artefacts/bugfix/dispatch.md before spawning, recording each agent's task and expected output
+  - After compaction, recover by reading HANDOFF.md (phase) and the workflow validation: block (criteria) — do not rely on recalled instructions
+  - When a subagent reports back post-compaction, validate against the workflow validation: block, not the subagent's self-assessment
+  # Hygiene
+  - Update HANDOFF.md on completion
+
+state_recovery:
+  after_compaction:
+    - "Re-read context/agents/orchestrator.md and each file in its rules: and standards: frontmatter"
+    - Glob **/artefacts/README.md and read all matches for current state
+    - Run git log --oneline -5 to see recent changes
+    - Read HANDOFF.md Phase: field to identify which phase was in flight
+    - Read the validation: block for that phase in this file — that is what any pending subagent report must satisfy
+    - Read artefacts/bugfix/dispatch.md if it exists — lists what each in-flight agent was asked to do
+  critical_files:
+    - "**/artefacts/README.md"
+    - "artefacts/bugfix/dispatch.md"
+    - "artefacts/bugfix/reproduce-evidence.md"
+
+# ---
+# Notes (human reference)
+#
+# PIPELINE:
+#   reproduce [gate] → fix → verify [gate]
+#
+# KEY DESIGN PRINCIPLES:
+#   1. Reproduce gate requires a causal chain (code-cited), not just a screenshot
+#   2. Fix = failing test (TDD Red) + code fix (TDD Green) + data fixes + doc fixes — all in one phase
+#   3. Verify gate requires browser evidence — tests passing alone is not sufficient
+#   4. The commit is the record — no separate artefact doc needed for every fix
+#
+# TDD FOR BUG FIXES:
+#   Write a failing test that reproduces the bug BEFORE changing any code.
+#   The test expresses correct behaviour (the requirement).
+#   Fix the code to make the test pass.
+#   This is TDD Red → Green applied to the bug, not a post-hoc test added after the fix.
+#
+# COMMON FAILURE MODES (why this workflow exists):
+#   - Agent infers root cause from column/function/file names without reading the code
+#   - Agent writes fix, runs tests, tests pass → declares success → bug not fixed in UI
+#   - Agent skips data fixes or doc fixes, leaving inconsistent state

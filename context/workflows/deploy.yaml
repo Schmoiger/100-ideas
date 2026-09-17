@@ -1,0 +1,67 @@
+name: deploy
+description: GCP cloud deployment and deployment review — run after build workflow local-deployment
+
+phases:
+  - id: gcp-deployment
+    name: GCP Cloud Deployment
+    skills:
+      - superpowers:finishing-a-development-branch
+      - commit-commands:commit-push-pr
+    agents:
+      - devops  # Terraform configs, Cloud Run / Firebase Hosting deployment, staging validation, rollback plan
+    outputs:
+      - artefacts/gcp/terraform/
+      - artefacts/gcp/deployment-guide.md
+      - artefacts/gcp/security-checklist.md
+    validation:
+      - Terraform validate and plan pass with no errors
+      - Deployed to staging successfully
+      - Health checks pass on all services
+      - Rollback plan documented
+    notes:
+      - devops operates in GCP mode for this phase (see context/agents/devops.md)
+
+  - id: deployment-review
+    name: Deployment Review
+    depends_on: [gcp-deployment]
+    gate: true
+    skills:
+      - superpowers:verification-before-completion
+      - superpowers:finishing-a-development-branch
+    agents:
+      - tech-lead  # Deployment health, monitoring, rollback confirmed
+    outputs:
+      - artefacts/build/
+    validation:
+      - Deployment successful
+      - Monitoring configured
+      - Rollback tested
+      - Coverage >= 97% confirmed before production sign-off
+
+quality_gates:
+  - phase: deployment-review
+    type: approval
+    required: true
+    description: "Tech lead must approve GCP deployment before production"
+    criteria:
+      - metric: test_coverage
+        threshold: 97
+        operator: ">="
+        phase_note: "Pre-deployment threshold (see testing-standards.md §Phase-Based Thresholds)"
+      - metric: critical_security_issues
+        threshold: 0
+        operator: "=="
+
+workflow_rules:
+  - devops operates in GCP mode (Terraform + gcloud), not Supabase mode
+  - Staging must be validated before production deployment
+  - Rollback plan is mandatory before deployment-review can APPROVE
+  - Use Write/Edit tools for file operations (not bash with echo/cat/sed)
+  - Estimate effort in tokens, not time
+
+# ---
+# Notes (human reference)
+#
+# Run after build.yaml local-deployment is complete and validated.
+# devops agent operates in GCP mode — see context/agents/devops.md for Mode 2 workflow.
+# Coverage threshold rises to 97% at this gate (higher than 95% quality-review threshold).

@@ -1,0 +1,32 @@
+name: test-workflow
+description: Test workflow for validation
+
+phases:
+  - id: phase1
+    name: Phase One
+    agents:
+      - test-agent
+    outputs:
+      - test-output.md
+    validation:
+      - Must pass validation
+
+  - id: phase2
+    name: Phase Two
+    depends_on: [phase1]
+    agents:
+      - another-agent
+    gate: true
+
+quality_gates:
+  - phase: phase2
+    type: approval
+    required: true
+    description: Must be approved
+
+workflow_rules:
+  - Rule 1
+  - Rule 2
+
+warnings:
+  - "⚠️ Test warning"

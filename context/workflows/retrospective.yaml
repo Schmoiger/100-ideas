@@ -1,0 +1,80 @@
+name: retrospective
+description: Proactive framework review — analyse accumulated data, suggest improvements, fix and record
+
+phases:
+  - id: review
+    name: Data Review
+    agents:
+      - workflow-analyst
+    outputs:
+      - Summary of findings (reported to orchestrator, not a standalone file)
+    notes:
+      - Read and analyse all three data sources:
+        - artefacts/build/agent-interruptions.md — blocking moments (questions, approvals, escalations)
+        - artefacts/build/agent-metrics.log — agent invocations and status
+        - artefacts/build/agent-incidents.md — framework failures already logged
+      - Look for patterns, not individual events:
+        - Repeated interruption types (same rule violation recurring)
+        - Agents consistently exceeding token budgets
+        - Escalations that should have been caught by rules
+        - Incidents with similar root causes suggesting a deeper gap
+      - Report findings to the orchestrator with specific file:line references
+    validation:
+      - All three data sources read
+      - Patterns identified with evidence (counts, examples)
+      - Each finding references specific files that would need to change
+
+  - id: discuss
+    name: Discuss with Human
+    depends_on: [review]
+    agents: []
+    gate: true
+    notes:
+      - Orchestrator presents findings to the human
+      - Each finding framed as: pattern observed → root cause → proposed fix
+      - Human decides which findings to act on
+      - Do not proceed without explicit human approval of which fixes to make
+
+  - id: fix
+    name: Fix and Commit
+    depends_on: [discuss]
+    parallel: true
+    agents:
+      - python-coder
+      - typescript-coder
+    notes:
+      - Orchestrator delegates approved fixes to appropriate agents
+      - Standards, rules, and templates may be edited directly by orchestrator (< 50 lines per file)
+      - Commit after each logical fix
+    validation:
+      - Only approved fixes implemented
+      - Acceptance criteria met per fix
+
+  - id: record
+    name: Record for Portability
+    depends_on: [fix]
+    agents: []
+    outputs:
+      - artefacts/build/tasks-context-framework.md (new tasks for portable fixes)
+    notes:
+      - Append tasks for fixes that should be ported to other repos
+      - Each task must include rationale, file list, and acceptance criteria
+
+quality_gates:
+  - phase: discuss
+    gate: true
+    approval: human
+
+workflow_rules:
+  - Run after a deployment, after a sprint, or on demand for mid-cycle health checks
+  - Orchestrator drives the review — delegate fixes, not analysis
+  - Present findings as patterns with evidence, not raw metrics
+  - No health scores or vanity metrics — every finding must lead to a fixable gap
+  - Human decides what to fix; orchestrator does not act on findings autonomously
+
+state_recovery:
+  after_compaction:
+    - "Re-read context/agents/orchestrator.md and each file in its rules: and standards: frontmatter"
+    - Run git log --oneline -5 to see recent changes
+    - Read HANDOFF.md Phase: field to identify which phase was in flight
+    - Read artefacts/build/agent-incidents.md for context on what's been logged

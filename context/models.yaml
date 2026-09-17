@@ -1,0 +1,189 @@
+# Model Profiles and Runtime Telemetry Lookup Table (LUT)
+# Canonical mapping of abstract intent tiers to provider model families and runtime telemetry sources.
+# Models are pinned to unversioned family classes; precise versions are resolved at runtime by platform adapters.
+
+version: "1.1"
+
+# -----------------------------------------------------------------------------
+# Runtime Resolution Strategy
+# -----------------------------------------------------------------------------
+# Rule: Do NOT hardcode transient point-in-time model versions (e.g. 2.5, 3.5) in agent definitions or this LUT.
+# Agents declare abstract intent tiers ('small', 'medium', 'large').
+# Runtimes and platform adapters resolve family aliases to the active environment's latest production version.
+resolution_strategy:
+  mode: "runtime_adapter_resolution"
+  description: "Platform adapters resolve unversioned family aliases to the runtime environment's active production models."
+  fallback: "Use provider environment default if alias is unrecognised."
+
+# -----------------------------------------------------------------------------
+# Abstract Model Intent Tiers
+# -----------------------------------------------------------------------------
+tiers:
+  small:
+    name: "Small (Lightweight / Fast / High-Throughput)"
+    description: "Fast, economical model for focused mechanical execution, browser tests, command execution, and light refactoring."
+    cost_tier: "low"
+    token_budget_guideline: "10k-30k tokens per task"
+    typical_tasks:
+      - Browser UI testing (@ui-tester)
+      - Infrastructure deployment commands (@devops)
+      - Simple mechanical file refactors and formatting
+      - Basic smoke checks and pre-flight validation
+    providers:
+      anthropic:
+        family: "haiku"
+        runtime_alias: "claude-haiku"
+        resolution: "Active production Haiku class (e.g. Haiku 3.5+)"
+      google:
+        family: "flash"
+        runtime_alias: "gemini-flash"
+        resolution: "Active production Flash class (e.g. Gemini 3.8 Flash, Flash-Lite/Low)"
+      openai:
+        family: "mini"
+        runtime_alias: "gpt-mini"
+        resolution: "Active production Mini class (e.g. GPT-4o-mini, o3-mini-low)"
+
+  medium:
+    name: "Medium (Standard / Workhorse / Balanced)"
+    description: "Balanced reasoning, code generation accuracy, and contextual precision for core engineering tasks."
+    cost_tier: "medium"
+    token_budget_guideline: "30k-80k tokens per task"
+    typical_tasks:
+      - UI and visual design, design systems, and mockups (@ui-designer)
+      - Production backend and frontend coding (@python-coder, @typescript-coder)
+      - TDD test authorship and execution (@functional-tester)
+      - Architecture fidelity and technical review gate (@tech-lead)
+      - Code review for edge cases and bugs (@code-reviewer)
+      - Threat modelling and vulnerability analysis (@security-tester)
+      - Schema and API design (@database-designer, @api-designer)
+      - User stories and requirements structuring (@product-owner)
+      - Technical documentation authoring (@documentation)
+      - Workflow and tokenomics analysis (@workflow-analyst, @tokenomics-analyst)
+    providers:
+      anthropic:
+        family: "sonnet"
+        runtime_alias: "claude-sonnet"
+        resolution: "Active production Sonnet class (e.g. Sonnet 3.7+)"
+      google:
+        family: "pro"
+        runtime_alias: "gemini-pro"
+        resolution: "Active production Pro class (e.g. Gemini 2.5/3.x Pro)"
+      openai:
+        family: "standard"
+        runtime_alias: "gpt-standard"
+        resolution: "Active production standard flagship class (e.g. GPT-4o, GPT-4.5)"
+
+  large:
+    name: "Large (Deep Reasoning / Orchestration / Complex Architecture)"
+    description: "Highest reasoning capacity, extended thinking, and meta-coordination capabilities for high-ambiguity or system-level tasks."
+    cost_tier: "high"
+    token_budget_guideline: "80k-150k+ tokens per task"
+    typical_tasks:
+      - Central multi-agent workflow coordination (@orchestrator)
+      - High-level system architecture and domain decomposition (@solution-architect)
+      - LESS engineering principles evaluation (@principles-reviewer)
+      - Eliciting and clarifying ambiguous human ideas into product vision (@product-expert)
+      - Complex failure diagnosis and root-cause analysis
+    providers:
+      anthropic:
+        family: "opus"
+        runtime_alias: "claude-opus"
+        extended_thinking_alias: "claude-thinking"
+        resolution: "Active production Opus class or Sonnet with Extended Thinking"
+      google:
+        family: "thinking"
+        runtime_alias: "gemini-thinking"
+        extended_thinking_alias: "gemini-pro-thinking"
+        resolution: "Active production Gemini reasoning/thinking class"
+      openai:
+        family: "reasoning"
+        runtime_alias: "o-series"
+        extended_thinking_alias: "o-series-high"
+        resolution: "Active production reasoning class (e.g. o1, o3)"
+
+# -----------------------------------------------------------------------------
+# Runtime Telemetry & Observation Sources
+# -----------------------------------------------------------------------------
+telemetry_sources:
+  git_embedded:
+    name: "Git-Embedded Session Telemetry"
+    description: "Portable canonical baseline recorded on git commits via prepare-commit-msg hook."
+    command: "git log --format='%H %s%n%b'"
+    pattern: "Agent-Session: tool={tool} model={model} agents={agents} duration={duration} dispatch={dispatch} interactions={interactions} approvals={approvals} tokens={tokens_in}/{tokens_out}"
+    fields:
+      tool: "Runtime CLI or platform (e.g. claude-code, antigravity, codex)"
+      model: "Specific provider model resolved at runtime"
+      agents: "Agent role responsible for commit"
+      duration: "Task duration (e.g. 32m)"
+      dispatch: "Dispatch origin (e.g. orchestrator, manual)"
+      interactions: "Count of human conversational interruptions"
+      approvals: "Count of tool execution permission prompts"
+      tokens: "Input tokens / output tokens formatted in thousands (e.g. 245.3K/18.7K)"
+
+  anthropic_claude:
+    name: "Claude Code & Managed Agents Telemetry"
+    description: "Session JSONL files and managed background consolidation trajectories."
+    local_session_path: "~/.claude/projects/{project-hash}/"
+    session_file_pattern: "*.jsonl"
+    token_fields:
+      input: "input_tokens"
+      cache_read: "cache_read_input_tokens"
+      cache_creation: "cache_creation_input_tokens"
+      output: "output_tokens"
+    managed_agents:
+      docs_url: "https://platform.claude.com/docs/en/managed-agents/dreams"
+      concepts:
+        - "Dreams: Background memory and trajectory consolidation"
+        - "Session trajectories: Multi-step action and thought logs"
+        - "Subagent traces: Spawned agent token attribution"
+
+  google_antigravity:
+    name: "Google Antigravity / Gemini IDE Telemetry"
+    description: "SQLite conversation database and protobuf generation metadata in app data."
+    local_session_path: "~/.gemini/antigravity-ide/conversations/{conversation-id}.db"
+    session_files:
+      database: "{conversation-id}.db"
+      transcripts: "<appDataDir>/brain/<conversation-id>/.system_generated/logs/transcript.jsonl"
+    storage_type: "sqlite_protobuf"
+    table: "gen_metadata"
+    repository_mapping:
+      table: "trajectory_metadata_blob"
+      field: "file://{repo-root}"
+    token_fields:
+      prompt_uncached: "Field 1.4.2 (varint)"
+      cached_context: "Field 1.4.5 (varint)"
+      total_input: "Field 1.4.2 + Field 1.4.5"
+      total_output: "Field 1.4.3 (varint)"
+      thinking: "Field 1.4.9 (varint)"
+      candidates: "Field 1.4.10 (varint)"
+    event_types:
+      planner_response: "PLANNER_RESPONSE"
+      user_input: "USER_INPUT"
+      subagent_spawn: "invoke_subagent"
+
+  github_copilot:
+    name: "GitHub Copilot Chat Telemetry"
+    description: "VS Code workspace storage chat session JSONL traces."
+    local_session_path: "~/Library/Application Support/Code/User/workspaceStorage/{workspace-hash}/chatSessions/"
+    linux_session_path: "~/.config/Code/User/workspaceStorage/{workspace-hash}/chatSessions/"
+    windows_session_path: "%APPDATA%/Code/User/workspaceStorage/{workspace-hash}/chatSessions/"
+    session_file_pattern: "*.jsonl"
+    storage_type: "jsonl"
+    repository_mapping:
+      file: "workspace.json"
+      key: "folder"
+      value: "file://{repo-root}"
+    token_fields:
+      input: "metadata.promptTokens"
+      output: "metadata.outputTokens / completionTokens"
+      thinking: "metadata.toolCallRounds[].thinking.tokens"
+      model: "metadata.resolvedModel / modelId"
+
+  openai_codex:
+    name: "OpenAI Codex & API Telemetry"
+    description: "API run step metrics and usage objects."
+    token_fields:
+      input: "prompt_tokens"
+      output: "completion_tokens"
+      reasoning: "completion_tokens_details.reasoning_tokens"
+

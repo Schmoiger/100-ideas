@@ -1,0 +1,21 @@
+{
+  "default": true,
+  // MD013: Line length
+  // Disabled: Agent definitions, rules, paths, and URLs naturally exceed 80 characters.
+  // Hard-wrapping breaks markdown tables and splits prompt instructions awkwardly.
+  "MD013": false,
+  // MD041: First line heading (first-line-h1)
+  // Disabled: Agent definitions in context/agents/ are AI system prompts starting with
+  // YAML frontmatter followed directly by role instructions (e.g. "You are..."), not H1 titles.
+  "MD041": false,
+  // MD060: Table column style
+  // Disabled: Renderers parse tables by pipes dynamically. Enforcing character-exact
+  // vertical alignment creates noisy linter warnings whenever variable-length text is edited.
+  "MD060": false,
+  "MD012": {
+    "maximum": 2
+  },
+  "MD035": {
+    "style": "---"
+  }
+}

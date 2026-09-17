@@ -1,0 +1,3 @@
+{"ts": "2025-01-28T09:00:00Z", "task": "DS-001", "agent": "python-coder", "event": "start", "tokens": {"in": 1200, "out": 450, "source": "api_response"}}
+{"ts": "2025-01-28T09:15:00Z", "task": "DS-001", "agent": "python-coder", "event": "handoff", "to": "functional-tester", "tokens": {"in": 800, "out": 320, "source": "api_response"}}
+{"ts": "2025-01-28T09:30:00Z", "task": "DS-001", "agent": "functional-tester", "event": "complete", "tokens": {"in": 650, "out": 280, "source": "api_response"}}

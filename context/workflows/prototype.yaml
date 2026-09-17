@@ -1,0 +1,85 @@
+# Prototype Workflow: Rapid Iteration
+#
+# Minimal workflow for fast prototyping and experimentation.
+# Skips reviews, extensive testing, and infrastructure.
+# Use for spikes, POCs, and throwaway code.
+
+name: prototype
+description: Fast iteration workflow for prototyping and experimentation
+
+phases:
+  - id: quick-plan
+    name: Quick Planning
+    agents:
+      - product-owner
+    outputs:
+      - artefacts/product/requirements.md
+    notes:
+      - Keep requirements lightweight
+      - Focus on core hypothesis to test
+
+  - id: sketch-design
+    name: Minimal Design
+    depends_on: [quick-plan]
+    agents:
+      - solution-architect
+    outputs:
+      - artefacts/architecture/architecture.md
+    notes:
+      - High-level only
+      - Document key decisions
+      - Skip detailed API specs
+
+  - id: build
+    name: Build Prototype
+    depends_on: [sketch-design]
+    parallel: true
+    agents:
+      - python-coder
+      - typescript-coder
+    outputs:
+      - Working prototype
+    notes:
+      - No tests required (prototype only)
+      - Focus on proving concept
+      - Technical debt acceptable
+
+  - id: validate
+    name: Smoke Test
+    depends_on: [build]
+    optional: true
+    agents:
+      - functional-tester
+    outputs:
+      - Basic smoke tests only
+    notes:
+      - Manual testing acceptable
+      - Cover happy path only
+      - Skip edge cases
+
+quality_gates: []
+
+workflow_rules:
+  - Speed over quality (prototype code)
+  - No formal reviews required
+  - Documentation optional
+  - Tests optional (smoke tests only)
+  - Skip deployment infrastructure
+  - Mark all prototype code clearly
+  - Plan for rewrite if promoting to production
+  # Compaction safety
+  - Update HANDOFF.md Phase: field BEFORE spawning agents
+  - For the parallel build phase, log each agent's scope in HANDOFF.md before spawning
+  - Commit after each meaningful milestone — git log is the recovery point
+
+state_recovery:
+  after_compaction:
+    - "Re-read context/agents/orchestrator.md and each file in its rules: and standards: frontmatter"
+    - Run git log --oneline -5 to see recent changes
+    - Read HANDOFF.md Phase: field to identify which phase was in flight
+    - Read artefacts/architecture/architecture.md for the plan being built against
+
+warnings:
+  - "⚠️  Prototype code should NOT go to production"
+  - "⚠️  No quality gates - review before promoting"
+  - "⚠️  If prototype succeeds, rewrite with default workflow"

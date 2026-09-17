@@ -1,0 +1,6 @@
+feat(auth): add login endpoint
+
+Implements the initial login endpoint using JWT tokens.
+
+Agent-Session: tool=cursor model=sonnet agents=python-coder duration=12m tokens=5.2K/3.1K
+Co-Authored-By: Agent <agent@example.com>

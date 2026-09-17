@@ -1,0 +1,143 @@
+# Pre-commit configuration template
+#
+# DEPLOYMENT
+# ----------
+# 1. Copy this file to the project root: cp context/scripts/pre-commit-config-template.yaml .pre-commit-config.yaml
+# 2. Install pre-commit: uv add --dev pre-commit
+# 3. Install hooks: uv run pre-commit install && uv run pre-commit install --hook-type commit-msg
+# 4. Run against all files (first time): uv run pre-commit run --all-files
+#
+# UPDATE HOOK VERSIONS
+# --------------------
+# Check for newer versions: uv run pre-commit autoupdate
+# Pin versions explicitly to prevent unexpected breakage across machines.
+
+repos:
+  # Python: Ruff (format + lint) and Pyright (type checking)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.1
+    hooks:
+      - id: ruff-check
+        name: Ruff (lint)
+        files: ^services/.*\.py$
+        args: [--fix]
+      - id: ruff-format
+        name: Ruff (format)
+        files: ^services/.*\.py$
+
+  # Pyright: run per-service (cd services/<name> && uv run pyright)
+  # - repo: https://github.com/RobertCraigie/pyright-python
+  #   rev: v1.1.408
+  #   hooks:
+  #     - id: pyright
+  #       name: Pyright (type check)
+  #       files: ^services/.*\.py$
+  #       exclude: ^services/.*/tests/.*\.py$
+  #       pass_filenames: false
+
+  # TypeScript linting and formatting
+  - repo: local
+    hooks:
+      - id: biome
+        name: Biome (TypeScript lint + format)
+        entry: yarn biome check --write
+        language: system
+        files: ^(frontend|packages)/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+
+  # Rule-mapped validation hooks (context/rules/*.md)
+  - repo: local
+    hooks:
+      - id: workspace-conventions-commit
+        name: Validate conventional commit message (workspace-conventions.md)
+        entry: uv run python context/scripts/validators/workspace_conventions.py commit-msg
+        language: python
+        stages: [commit-msg]
+        always_run: true
+
+      - id: workspace-conventions-metrics
+        name: Validate agent metrics logging (workspace-conventions.md)
+        entry: uv run python context/scripts/validators/workspace_conventions.py metrics
+        language: python
+        files: ^metrics/.*\.jsonl$
+
+      - id: tech-writing-ears
+        name: Validate EARS notation in requirements (tech-writing.md)
+        entry: uv run python context/scripts/validators/tech_writing.py ears
+        language: python
+        files: ^artefacts/product/(requirements|user-stories)\.md$
+
+      - id: tech-writing-spelling
+        name: Validate British English spelling (tech-writing.md)
+        entry: uv run python context/scripts/validators/tech_writing.py spelling
+        language: python
+        files: ^(artefacts/|frontend/|services/|packages/).*\.md$
+        exclude: ^(node_modules|\.git|venv|\.venv)/
+
+      - id: ui-dev
+        name: Validate UI development invariants (ui-dev.md)
+        entry: uv run python context/scripts/validators/ui_dev.py
+        language: python
+        files: ^frontend/.*\.(tsx|jsx|css|scss)$
+        pass_filenames: true
+
+      - id: supabase
+        name: Validate Supabase invariants (supabase.md)
+        entry: uv run python context/scripts/validators/supabase.py
+        language: python
+        files: (\.py|\.ts|\.tsx|\.sql)$
+
+      - id: testing-invariants
+        name: Validate testing invariants (testing.md)
+        entry: uv run python context/scripts/validators/testing.py
+        language: python
+        files: (\.test\.|\.spec\.|/tests/)
+
+      - id: typescript-environment
+        name: Validate TypeScript environment (typescript-environment.md)
+        entry: uv run python context/scripts/validators/typescript_environment.py
+        language: python
+        files: (tsconfig.*\.json|package\.json|package-lock\.json)$
+
+      - id: ui-testing
+        name: Validate UI testing dependencies (ui-testing.md)
+        entry: uv run python context/scripts/validators/ui_testing.py
+        language: python
+        files: package\.json$
+
+      - id: secrets
+        name: Scan for committed secrets (secrets.md)
+        entry: uv run python context/scripts/validators/secrets.py
+        language: python
+        files: (\.py|\.ts|\.tsx|\.js|\.json|\.env.*)$
+        exclude: ^(\.git|tests/|fixtures/|__tests__/)
+
+      - id: typst-formatting
+        name: Verify Typst-friendly Markdown formatting
+        entry: uv run python context/scripts/validators/verify_typst_formatting.py
+        language: python
+        files: \.md$
+        exclude: ^(node_modules|\.git|venv|\.venv)/
+
+      - id: framework-docs-staleness
+        name: Check framework docs updated with context/ changes
+        entry: uv run python context/scripts/validators/framework_docs_staleness.py
+        language: python
+        files: ^context/
+        pass_filenames: false
+
+      - id: adapter-drift
+        name: Check runtime adapter projections in sync with context/
+        entry: uv run python context/scripts/validators/adapter_drift.py
+        language: python
+        files: ^(context/|AGENTS\.md|GEMINI\.md|CLAUDE\.md|\.claude/|\.github/|\.openai/|\.agents/skills/)
+        pass_filenames: false
+
+      - id: agent-definitions
+        name: Validate agent definition schema
+        entry: uv run python context/scripts/validators/agent_definitions.py
+        language: python
+        files: ^context/agents/.*\.md$
+
+      # Runtime adapter regeneration - run manually when needed:
+      # uv run python context/scripts/generators/generate_adapters.py

@@ -1,0 +1,78 @@
+name: content
+description: Human-facing content creation (blogs, papers, guides) with writing personas
+
+phases:
+  - id: research
+    name: Research & Context Gathering
+    agents:
+      - product-expert  # Gather domain context, understand audience and purpose, identify key messages
+    outputs:
+      - Research notes
+      - Source materials
+
+  - id: draft
+    name: Write First Draft
+    depends_on: [research]
+    agents:
+      - documentation  # Write first draft using chosen persona (technical-writer or opinionated-blogger)
+    outputs:
+      - artefacts/content/drafts/{title}-draft.md
+    validation:
+      - Persona voice applied (not dry technical tone)
+      - British English used consistently
+      - Opening hook present
+      - Concrete examples included
+    notes:
+      - Agent reads the persona specified in the task (technical-writer for guides, opinionated-blogger for blog posts)
+      - "Target length: blog 400-800 words; paper longer"
+
+  - id: review
+    name: Editorial Review
+    depends_on: [draft]
+    agents:
+      - documentation  # Review for voice consistency, British English, no AI slop
+    outputs:
+      - artefacts/content/drafts/{title}-reviewed.md
+    validation:
+      - Voice consistent throughout
+      - No AI slop patterns (em dashes, triads, vapid transitions)
+      - Examples work and are relevant
+
+  - id: technical-review
+    name: Technical Accuracy Review
+    depends_on: [review]
+    optional: true
+    agents:
+      - documentation  # Verify technical claims, code examples, and API references
+    outputs:
+      - artefacts/content/drafts/{title}-tech-reviewed.md
+    notes:
+      - Skip for non-technical content
+
+  - id: finalize
+    name: Finalize & Publish
+    depends_on: [technical-review]
+    agents:
+      - documentation  # Apply final edits, format for platform, add metadata, move to published/
+    outputs:
+      - artefacts/content/published/{title}.md
+
+quality_gates: []
+
+workflow_rules:
+  - Always use a writing persona (technical-writer for guides, opinionated-blogger for blog posts)
+  - British English throughout (colour, optimise, whilst)
+  - No AI slop (em dashes, triads, vapid transitions)
+  - Concrete examples, not abstract descriptions
+  - Opening hook required
+  - Target audience clarity (leaders vs practitioners)
+  - Persona voice consistency across phases
+  - Use Write/Edit tools for file operations (not bash with echo/cat/sed)
+
+# ---
+# Notes (human reference)
+#
+# This workflow is for HUMAN-FACING content only (blogs, papers, guides).
+# For technical handoffs and API docs, use the docs-cleanup phase in build.yaml.
+# Always specify which persona to use (technical-writer for guides, opinionated-blogger for blogs).
+# technical-review phase is optional — skip for non-technical content.

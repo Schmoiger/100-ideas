@@ -1,0 +1,119 @@
+name: full-test
+description: Full-suite testing across all modules — run before merge to master or on demand
+
+phases:
+  - id: full-unit-test
+    name: Full Unit Test Suite
+    agents:
+      - functional-tester  # Run full pytest/vitest across all modules; report failures and coverage
+    scope: all
+    outputs:
+      - artefacts/test-results/unit/
+    validation:
+      - All unit tests pass (no failures)
+      - Coverage >= 95% on changed feature modules
+      - Coverage >= 80% baseline on all other modules
+      - Test report saved to artefacts/test-results/unit/
+    notes:
+      - "Python: uv run pytest tests/unit/ --cov --cov-report=term-missing"
+      - "TypeScript: yarn test --run --coverage"
+      - Report failures clearly — do NOT fix code in this phase
+      - Log coverage per module for the quality-check phase
+
+  - id: full-integration-test
+    name: Full Integration Test Suite
+    depends_on: [full-unit-test]
+    agents:
+      - functional-tester  # Test all service boundaries and API contracts across the full codebase
+    scope: all
+    outputs:
+      - artefacts/test-results/integration/
+    validation:
+      - All integration tests pass (no failures)
+      - All API contracts verified
+      - All service interactions tested
+      - Database migrations validated
+      - Test report saved to artefacts/test-results/integration/
+    notes:
+      - "Python: uv run pytest tests/integration/"
+      - Report failures clearly — do NOT fix code in this phase
+      - Note flaky tests separately from genuine failures
+
+  - id: full-e2e-test
+    name: Full E2E Test Suite
+    depends_on: [full-integration-test]
+    agents:
+      - ui-tester  # Browser test all user workflows; screenshots required for each
+    scope: all
+    outputs:
+      - artefacts/test-results/e2e/
+      - artefacts/test-results/e2e/screenshots/
+    validation:
+      - All user workflows tested end-to-end
+      - At least one screenshot per workflow
+      - Browser interactions documented (not just API calls)
+      - Test report saved to artefacts/test-results/e2e/
+    notes:
+      - "REQUIRED: Screenshots in artefacts/test-results/e2e/screenshots/"
+      - Test log must show browser interactions, not just API calls
+      - "RECOMMENDED: Automated visual diff checking (see tech-standards.md for Puppeteer + pixelmatch)"
+
+  - id: quality-check
+    name: Quality Check (Full Suite Summary)
+    depends_on: [full-e2e-test]
+    gate: true
+    agents:
+      - tech-lead  # Review aggregate results; APPROVED → safe to merge; INVESTIGATE → document failures
+    outputs:
+      - artefacts/test-results/quality-check-summary.md
+    validation:
+      - All test suites green (unit + integration + e2e)
+      - Coverage >= 95% on changed feature modules
+      - Coverage >= 80% baseline on all other modules
+      - No patterns of failure that indicate systemic issues
+      - APPROVED or INVESTIGATE verdict with summary
+    notes:
+      - APPROVED → safe to merge to master
+      - INVESTIGATE → document failing areas and return to appropriate phase for fixes
+
+quality_gates:
+  - phase: quality-check
+    type: approval
+    required: true
+    description: "@tech-lead reviews aggregate test results across all suites before merge is safe"
+    criteria:
+      - metric: unit_test_pass_rate
+        threshold: 100
+        operator: "=="
+      - metric: integration_test_pass_rate
+        threshold: 100
+        operator: "=="
+      - metric: e2e_test_pass_rate
+        threshold: 100
+        operator: "=="
+      - metric: test_coverage_changed_modules
+        threshold: 95
+        operator: ">="
+      - metric: test_coverage_baseline
+        threshold: 80
+        operator: ">="
+
+workflow_rules:
+  - No code changes in this workflow — purely testing and reporting
+  - Failures are reported, not fixed (fixes belong in the appropriate sprint)
+  - Run after the final sprint-review of a feature, before merging to master
+  - Can also run on demand to verify system health
+  - "Python: uv run pytest"
+  - "TypeScript: yarn test --run"
+  - Use Write/Edit tools for file operations (not bash with echo/cat/sed)
+  - Estimate effort in tokens, not time
+
+# ---
+# Notes (human reference)
+#
+# Phases are sequential by design: unit → integration → e2e → quality-check
+# This is NOT the per-feature regression workflow (that is in build.yaml, scoped to changed modules).
+# Use this workflow:
+#   - Before merging a long-running feature branch to master
+#   - On demand to verify the full system is healthy
+#   - After significant refactors that may affect untested areas
