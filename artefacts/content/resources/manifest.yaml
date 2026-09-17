@@ -1,0 +1,12 @@
+# Shared Resource Library Manifest
+# Central repository of foundational whitepapers, books, frameworks, and reference PDFs
+# referenced across multiple ideas in the 100-ideas catalogue.
+
+resources:
+  - id: new-devx-vision
+    title: "New DevX Vision"
+    type: "whitepaper"
+    file: "new-devx-vision.md"
+    description: "Foundational whitepaper outlining the Agentic Software Development Lifecycle (ADLC), Humans Above The Loop, and the Theory of Constraints in DevX."
+    tags: ["adlc", "devx", "governance", "theory-of-constraints"]
+    linked_ideas: []
