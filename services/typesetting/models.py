@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -20,6 +20,7 @@ class ChapterDraft:
     economic_section: str
     hype_section: str
     takeaways: list[str]
+    citations: list[str] = field(default_factory=list)
     illustration_path: str = ""
     generated_at: str = ""
 
@@ -80,6 +81,19 @@ class ChapterDraft:
 
         for item in self.takeaways:
             lines.append(f"- {item}")
+
+        if self.citations:
+            lines.extend(
+                [
+                    "",
+                    "---",
+                    "",
+                    "## Grounded Citations & Field References",
+                    "",
+                ]
+            )
+            for item in self.citations:
+                lines.append(f"- {item}")
 
         lines.append("")
         return "\n".join(lines)

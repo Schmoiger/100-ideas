@@ -106,20 +106,31 @@ def draft_blog_post(
     ideas_root: Path,
     ideas_catalog: list[IdeaRecord] | None = None,
     force: bool = False,
+    overwrite_manual: bool = False,
 ) -> tuple[Path, bool]:
     """Generate Hostinger-compatible blog post adhering to AS author persona.
 
     Implements REQ-BLG-001 and REQ-BLG-002.
     Returns (post_path, was_generated).
+    Refuses to overwrite if human_modified=True without overwrite_manual=True.
     """
+    from services.ingestion.safeguards import check_manual_edit_safeguard
+
     idea_dir = ideas_root / idea.id
     blog_dir = idea_dir / "blog"
     blog_dir.mkdir(parents=True, exist_ok=True)
     post_file = blog_dir / "post.md"
 
-    # Check cache / idempotency
-    if post_file.is_file() and not force:
-        return post_file, False
+    # Check cache / idempotency & manual edit protection
+    if post_file.is_file():
+        if not force and not overwrite_manual:
+            return post_file, False
+        check_manual_edit_safeguard(
+            target_file=post_file,
+            idea=idea,
+            force=force,
+            overwrite_manual=overwrite_manual,
+        )
 
     # Extract tags
     tags: list[str] = ["SoftwareEngineering", "Architecture"]

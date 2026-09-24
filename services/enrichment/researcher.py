@@ -98,20 +98,31 @@ def synthesise_research(
     ideas_root: Path,
     resources_root: Path,
     force: bool = False,
+    overwrite_manual: bool = False,
 ) -> tuple[Path, bool]:
     """Execute research phase for an idea and persist notes.md.
 
     Handles REQ-ENR-001 & REQ-ORC-005:
     Returns (notes_path, was_generated). Skips if already present unless force=True.
+    Refuses to overwrite if human_modified=True without overwrite_manual=True.
     """
+    from services.ingestion.safeguards import check_manual_edit_safeguard
+
     idea_dir: Path = ideas_root / idea.id
     research_dir: Path = idea_dir / "research"
     research_dir.mkdir(parents=True, exist_ok=True)
 
     notes_file: Path = research_dir / "notes.md"
-    if notes_file.is_file() and not force:
-        # Idempotent skip per REQ-ORC-005
-        return notes_file, False
+    if notes_file.is_file():
+        if not force and not overwrite_manual:
+            # Idempotent skip per REQ-ORC-005
+            return notes_file, False
+        check_manual_edit_safeguard(
+            target_file=notes_file,
+            idea=idea,
+            force=force,
+            overwrite_manual=overwrite_manual,
+        )
 
     resources: list[tuple[dict[str, Any], str]] = resolve_resources_for_idea(idea, resources_root)
 
@@ -137,6 +148,8 @@ def synthesise_research(
                 meta_data["linked_resources"] = idea.linked_resources
                 meta_data["research_notes"] = "research/notes.md"
                 meta_data["status"] = "enriched"
+                if meta_data.get("stage") == "raw" or "stage" not in meta_data:
+                    meta_data["stage"] = "research_ready"
                 temp_meta: Path = idea_dir / ".meta.yaml.tmp"
                 temp_meta.write_text(
                     yaml.safe_dump(meta_data, sort_keys=False, allow_unicode=True), encoding="utf-8"

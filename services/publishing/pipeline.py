@@ -23,6 +23,7 @@ def process_blog_and_social(
     cms_platform: str | None = None,
     config_path: Path | None = None,
     force: bool = False,
+    overwrite_manual: bool = False,
 ) -> dict[str, Any]:
     """Coordinate blog drafting, LinkedIn social generation, and CMS export.
 
@@ -49,6 +50,7 @@ def process_blog_and_social(
             idea=idea,
             ideas_root=ideas_root,
             force=force,
+            overwrite_manual=overwrite_manual,
         )
         results["blog_post"] = str(post_path)
         results["blog_generated"] = blog_gen
@@ -59,6 +61,7 @@ def process_blog_and_social(
             idea=idea,
             ideas_root=ideas_root,
             force=force,
+            overwrite_manual=overwrite_manual,
         )
         results["linkedin_post"] = str(linkedin_path)
         results["social_generated"] = social_gen

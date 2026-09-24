@@ -57,6 +57,7 @@ def enrich_idea(
     regenerate_image: bool = False,
     refinement: str | None = None,
     force: bool = False,
+    overwrite_manual: bool = False,
 ) -> dict[str, Any]:
     """Execute enrichment workflow for a specific idea.
 
@@ -78,6 +79,7 @@ def enrich_idea(
             ideas_root=ideas_root,
             resources_root=resources_root,
             force=force,
+            overwrite_manual=overwrite_manual,
         )
         results["research_notes"] = str(notes_path)
         results["research_generated"] = res_gen
