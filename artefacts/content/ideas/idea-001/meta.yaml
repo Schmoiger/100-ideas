@@ -19,3 +19,5 @@ token_usage: {}
 research_notes: research/notes.md
 illustration: assets/illustration.png
 visual_prompt: assets/prompt.txt
+chapter_draft: book/chapter.md
+chapter_pdf: book/chapter.pdf

@@ -1,8 +1,8 @@
-# Handoff: Content Enrichment Subsystem Prototype (§3.3)
+# Handoff: Book Mode & Typst Typesetting Subsystem Prototype (§3.4)
 
 **From**: @orchestrator
-**To**: @python-coder
-**Date**: 2026-09-24
+**To**: @solution-architect
+**Date**: 24/09/2026
 **Workflow**: prototype
 **Phase**: ready
 **Status**: ready
@@ -19,7 +19,7 @@
 
 ## Summary
 
-Completed prototype workflow for the Content Enrichment Subsystem (§3.3 of `artefacts/product/requirements.md`). All acceptance criteria (REQ-ENR-001 through REQ-ENR-004, REQ-ORC-005) verified with passing smoke tests and CLI execution.
+Completed prototype workflow for the Book Mode & Typst Typesetting Subsystem (§3.4 of `artefacts/product/requirements.md`). All requirements (REQ-BOK-001 through REQ-BOK-005) verified with passing smoke tests, single chapter PDF generation, and multi-chapter aggregated book volume compilation with Table of Contents.
 
 ---
 
@@ -28,10 +28,11 @@ Completed prototype workflow for the Content Enrichment Subsystem (§3.3 of `art
 | ID | Task | Status | Notes |
 |----|------|--------|-------|
 | TASK-ING-PROTO | Complete Idea Ingestion Subsystem prototype | complete | Merged in PR #2 |
-| REQ-ENR-SPECS | Define Content Enrichment requirements (§3.3) | complete | requirements.md L61 |
-| TASK-ENR-DESIGN | Sketch minimal architecture for enrichment subsystem | complete | architecture.md §2 |
-| TASK-ENR-BUILD | Build research synthesiser and visual generator services | complete | services/enrichment/ |
-| TASK-ENR-VAL | Run smoke tests and CLI validation on enrichment prototype | complete | 6 passed in test_smoke.py |
+| TASK-ENR-PROTO | Complete Content Enrichment Subsystem prototype | complete | Merged in PR #3 |
+| REQ-BOK-SPECS | Define Book Mode & Typst requirements (§3.4) | complete | requirements.md L72 |
+| TASK-BOK-DESIGN | Sketch minimal architecture for Book Mode & Typst typesetting | complete | architecture.md §4 |
+| TASK-BOK-BUILD | Implement drafter, translator, and Typst compiler services | complete | services/typesetting/ |
+| TASK-BOK-VAL | Run smoke tests and compile sample chapter PDF and aggregated book PDF | complete | 5 passed in test_smoke.py |
 
 ---
 
@@ -39,8 +40,8 @@ Completed prototype workflow for the Content Enrichment Subsystem (§3.3 of `art
 
 | ID | Task | Priority | Depends On |
 |----|------|----------|------------|
-| TASK-010 | Implement Book Mode drafting and Typst typesetting | high | TASK-ENR-VAL |
-| TASK-011 | Implement Blog Mode drafting, Hostinger frontmatter, and LinkedIn exports | high | TASK-ENR-VAL |
+| TASK-011 | Implement Blog Mode drafting, Hostinger frontmatter, and LinkedIn exports | high | TASK-BOK-VAL |
+| TASK-012 | Implement Markdown portability export bundling | medium | TASK-BOK-VAL |
 
 ---
 

@@ -122,19 +122,90 @@ flowchart TD
   - `meta.yaml`: Canonical idea state, lineage, tags, timestamps, and model/token telemetry.
   - `research/`: Idea-specific research synthesis and notes (`notes.md`).
   - `assets/`: Generated visuals (`illustration.png`, `prompt.txt`).
-  - `book/`: Typeset book chapter drafts.
+  - `book/`: Typeset book chapter drafts (`chapter.md`, `chapter.typ`, `chapter.pdf`).
   - `blog/`: Publication-ready blog drafts and platform frontmatter.
 - `artefacts/content/resources/`
   - Centralised M:N library of foundational source whitepapers, book notes, and references.
   - `manifest.yaml`: Global registry of shared resources.
+- `artefacts/content/book/`
+  - Aggregated multi-chapter book manuscripts and compiled publication volume (`100-ideas-book.pdf`).
 
 ---
 
-## 4. Related Documents
+## 4. Book Mode & Typst Typesetting Subsystem (§3.4)
+
+### 4.1 Subsystem Responsibilities
+
+The Book Mode & Typst Typesetting Subsystem transforms enriched idea dossiers and illustrations into publication-ready book chapters and compiles them into professional PDFs using the embedded Typst typesetting engine (`typst/`).
+
+```mermaid
+flowchart TD
+    subgraph EnrichedStore["Enriched Idea Store"]
+        META["meta.yaml"]
+        RES["research/notes.md"]
+        IMG["assets/illustration.png"]
+    end
+
+    subgraph BookDrafter["Book Drafter (Author Persona)"]
+        STYLE["context/persona/author.md"]
+        DRAFT["services/typesetting/drafter.py"]
+    end
+
+    subgraph TypstPipeline["Typst Typesetting Engine"]
+        TRANS["services/typesetting/translator.py"]
+        TYPST_SRC["chapter.typ / book.typ"]
+        COMPILER["services/typesetting/compiler.py (typst CLI)"]
+        BRAND["typst/brands/neutral.typ"]
+    end
+
+    subgraph Outputs["Publication Artefacts"]
+        MD_CHAPTER["book/chapter.md"]
+        PDF_CHAPTER["book/chapter.pdf"]
+        PDF_BOOK["artefacts/content/book/100-ideas-book.pdf"]
+    end
+
+    META --> DRAFT
+    RES --> DRAFT
+    STYLE --> DRAFT
+    DRAFT --> MD_CHAPTER
+
+    MD_CHAPTER --> TRANS
+    IMG --> TRANS
+    TRANS --> TYPST_SRC
+    BRAND --> COMPILER
+    TYPST_SRC --> COMPILER
+    COMPILER --> PDF_CHAPTER
+    COMPILER --> PDF_BOOK
+```
+
+
+### 4.2 Key Architectural Decisions
+
+1. **Author Persona Adherence (`REQ-BOK-001`)**:
+   - The chapter generator strictly mirrors the style invariants defined in `context/persona/author.md` (the "AS" technologist voice): punch over preamble, plain language, information density, real-world analogues, economic trade-offs, and wry realism.
+   - Headings are structural, paragraphs are punchy (2-3 sentences), and chapters integrate scannable callout blocks and structured comparison tables.
+
+2. **Semantic Markdown to Typst Translation (`REQ-BOK-002`, `REQ-BOK-003`)**:
+   - Chapter manuscripts are authored in semantic Markdown (`book/chapter.md`) for portable reading and diff tracking.
+   - The translator compiles Markdown into clean Typst markup (`chapter.typ`), mapping Markdown callouts to Typst blocks and embedding `#figure(image("..."), caption: [...])` pointing to `assets/illustration.png`.
+
+3. **Subrepo Typst Engine Integration (`REQ-BOK-004`)**:
+   - Compilation leverages the system `typst compile` CLI using the project's subrepo design system in `typst/brands/neutral.typ` (clean typography, crisp margins, mathematical styling, and table formatting).
+   - Generates vector-sharp PDFs with embedded page numbers, running headers, and metadata.
+
+4. **Unified Multi-Chapter Aggregation (`REQ-BOK-005`)**:
+   - The aggregator compiles all processed chapters into `artefacts/content/book/100-ideas-book.pdf`.
+   - Generates an automated table of contents, book introduction, structured parts, and cohesive pagination.
+
+---
+
+## 5. Related Documents
 
 - **Product Requirements**: [requirements.md](product/requirements.md)
 - **Conceptual Data Model**: [data-model.md](data-model.md)
-- **Idea Catalogue**: [100-ideas.md](product/100-ideas.md)
-- **Ideas Inbox**: [inbox.md](product/inbox.md)
+- **Author Persona**: [context/persona/author.md](../../context/persona/author.md)
+- **Typst Typesetting Subrepo**: [typst/README.md](../../typst/README.md)
+- **Architecture Comparison Guide**: [agent-app-architecture-comparison.md](product/agent-app-architecture-comparison.md)
 - **Task Tracking**: [tasks.md](../build/tasks.md)
+
 

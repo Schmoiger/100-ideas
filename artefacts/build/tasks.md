@@ -26,7 +26,7 @@
 | TASK-007 | medium | completed | TASK-006 | Implement incremental inbox ingestion parser (`artefacts/product/inbox.md`) |
 | TASK-008 | high | completed | - | Implement shared M:N resource library indexing and idea linking |
 | TASK-009 | high | completed | - | Implement visual prompt derivation and editorial image generation engine |
-| TASK-010 | high | pending | TASK-004 | Implement Book Mode drafting (author persona) and Typst typesetting pipeline |
+| TASK-010 | high | completed | - | Implement Book Mode drafting (author persona) and Typst typesetting pipeline |
 | TASK-011 | high | pending | TASK-004 | Implement Blog Mode drafting (blogger persona), Hostinger frontmatter, and LinkedIn exports |
 | TASK-012 | medium | pending | TASK-008 | Implement Markdown portability export bundling |
 
@@ -81,4 +81,14 @@
   - Valid PNG binary starting with `\x89PNG\r\n\x1a\n` saved to `assets/illustration.png`.
   - Negative constraints avoid AI art clichés.
   - Independent `--regenerate-image` preserves research notes.
+
+### TASK-010: Book Mode Drafting & Typst Typesetting Pipeline
+- **Status**: Completed
+- **Description**: Implement chapter drafter adopting the AS author persona, Markdown-to-Typst translator, and Typst compiler producing single-chapter and aggregated book PDFs.
+- **Acceptance Criteria**:
+  - Chapter draft strictly adheres to `context/persona/author.md` (punch over preamble, plain language, information density, economic equation, hype puncturing, bold lead-in takeaways).
+  - Semantic Markdown converted to Typst markup embedding callouts, comparison tables, and illustrations.
+  - Typst CLI invokes `neutral.typ` to produce valid publication-grade PDFs for single chapters and aggregated multi-chapter volumes with Table of Contents.
+  - Idempotent CLI execution via `ideas draft` and `ideas typeset`.
+
 
