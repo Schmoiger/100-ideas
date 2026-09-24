@@ -1,15 +1,52 @@
-"""Book chapter drafter adhering to author persona."""
+"""Book chapter drafter adhering to author persona with live Gemini SDK integration and token governance."""
 
 from __future__ import annotations
 
 import re
+import time
 from pathlib import Path
 from typing import Any
 
 import yaml
+from google.genai import types
+from pydantic import BaseModel, Field
 
 from services.ingestion.models import IdeaRecord
+from services.llm.caching import get_or_create_context_cache, should_create_cache
+from services.llm.client import get_genai_client, is_live_genai_available
+from services.llm.governance import (
+    check_fingerprint_match,
+    clamp_context,
+    compute_input_fingerprint,
+    estimate_cost,
+    estimate_token_count,
+    get_governance,
+)
+from services.llm.telemetry import TokenTelemetry, record_telemetry_in_meta
 from services.typesetting.models import ChapterDraft
+
+
+class ChapterManuscriptSchema(BaseModel):
+    """Pydantic structured output schema for book chapter manuscript."""
+
+    lead_punch: str = Field(
+        description="Arresting opening paragraph with zero throat-clearing, arresting contrast, and momentum"
+    )
+    mechanics_section: str = Field(
+        description="Core mechanism, physical metaphors (e.g. digital rust, plumbing valves), and empirical grounding"
+    )
+    economic_section: str = Field(
+        description="Economic trade-offs, 2 a.m. pager realities, and markdown comparison table"
+    )
+    hype_section: str = Field(
+        description="Puncturing industry hype, dry British realism, and empirical humility"
+    )
+    takeaways: list[str] = Field(
+        description="Actionable takeaway bullets with bold lead-ins in British English"
+    )
+    citations: list[str] = Field(
+        default_factory=list, description="Formal citations referencing verified resources"
+    )
 
 
 def _extract_number(idea_id: str) -> int:
@@ -56,6 +93,16 @@ def parse_research_notes_sections(research_content: str) -> dict[str, list[str]]
     return sections
 
 
+def load_author_persona(repo_root: Path | None = None) -> str:
+    """Load authoritative author persona from context/persona/author.md."""
+    if repo_root is None:
+        repo_root = Path(__file__).resolve().parent.parent.parent
+    author_file = repo_root / "context" / "persona" / "author.md"
+    if author_file.is_file():
+        return author_file.read_text(encoding="utf-8")
+    return "You are AS, a seasoned technologist with 25+ years experience. Write with British English, punchy paragraphs, and wry realism."
+
+
 def build_chapter_draft(
     idea: IdeaRecord,
     research_content: str,
@@ -63,7 +110,7 @@ def build_chapter_draft(
     illustration_rel_path: str = "../assets/illustration.png",
     chapter_num: int | None = None,
 ) -> ChapterDraft:
-    """Compose substantive chapter manuscript adhering to author persona."""
+    """Compose substantive chapter manuscript adhering to author persona (deterministic fallback)."""
     num: int = chapter_num if chapter_num is not None else _extract_number(idea.id)
     res_sections = parse_research_notes_sections(research_content)
 
@@ -151,33 +198,35 @@ def draft_book_chapter(
     idea: IdeaRecord,
     ideas_root: Path,
     force: bool = False,
+    force_llm: bool = False,
+    dry_run: bool = False,
     overwrite_manual: bool = False,
     chapter_num: int | None = None,
+    client: Any = None,
 ) -> tuple[Path, bool]:
     """Generate book chapter manuscript and write to artefacts/content/ideas/{id}/book/chapter.md.
 
-    Handles REQ-BOK-001 and REQ-BOK-002:
-    Returns (chapter_file_path, was_generated).
-    Refuses to overwrite if human_modified=True without overwrite_manual=True.
+    Handles REQ-BOK-001 and REQ-BOK-002 with live Gemini 2.5 Pro integration and token guard rails.
     """
     from services.ingestion.safeguards import check_manual_edit_safeguard
 
     idea_dir: Path = ideas_root / idea.id
     book_dir: Path = idea_dir / "book"
     book_dir.mkdir(parents=True, exist_ok=True)
-
+    meta_file: Path = idea_dir / "meta.yaml"
     chapter_file: Path = book_dir / "chapter.md"
+
     if chapter_file.is_file():
-        if not force and not overwrite_manual:
+        if not force and not overwrite_manual and not force_llm:
             return chapter_file, False
         check_manual_edit_safeguard(
             target_file=chapter_file,
             idea=idea,
-            force=force,
+            force=force or force_llm,
             overwrite_manual=overwrite_manual,
         )
 
-    # Read research notes if present
+    # 1. Read research notes if present
     notes_file: Path = idea_dir / "research" / "notes.md"
     research_content: str = ""
     if notes_file.is_file():
@@ -195,22 +244,180 @@ def draft_book_chapter(
     # Determine illustration path
     img_file: Path = idea_dir / "assets" / "illustration.png"
     illustration_rel: str = "../assets/illustration.png" if img_file.is_file() else ""
+    num: int = chapter_num if chapter_num is not None else _extract_number(idea.id)
 
-    draft: ChapterDraft = build_chapter_draft(
-        idea=idea,
-        research_content=research_content,
-        metaphor=metaphor,
-        illustration_rel_path=illustration_rel,
-        chapter_num=chapter_num,
+    # 2. Cryptographic input fingerprinting (Guard Rail 3)
+    author_persona = load_author_persona()
+    prompt_template = (
+        f"Draft publication-grade book chapter for Idea #{num}: '{idea.title}'\n"
+        f"Synopsis: {idea.synopsis}\n"
+        f"Metaphor: {metaphor}\n"
+    )
+    fingerprint = compute_input_fingerprint(
+        model_name="gemini-2.5-pro",
+        prompt_template=prompt_template,
+        input_documents=[research_content],
     )
 
-    # Atomic write of chapter.md
+    if chapter_file.is_file() and not force_llm:
+        if check_fingerprint_match(meta_file, fingerprint):
+            return chapter_file, False
+
+    # 3. Context Clamping & Caching (Guard Rail 4)
+    cache_name: str | None = None
+    cached_tokens: int = 0
+    live_available = is_live_genai_available() or client is not None
+
+    if live_available and should_create_cache([author_persona, research_content]):
+        active_client = client or get_genai_client()
+        cache_name = get_or_create_context_cache(
+            client=active_client,
+            model="gemini-2.5-pro",
+            contents=[author_persona, research_content],
+        )
+        if cache_name:
+            cached_tokens = estimate_token_count(author_persona + research_content)
+
+    clamped_research = clamp_context(research_content, max_tokens=10_000)
+
+    # 4. Pre-flight check & circuit breaker (Guard Rails 1 & 2)
+    gov = get_governance()
+    prompt_tokens = estimate_token_count(f"{prompt_template}\n\n{clamped_research}")
+    projected_completion_tokens = 2200
+
+    projected_cost = gov.check_preflight(
+        model="gemini-2.5-pro",
+        projected_prompt_tokens=prompt_tokens,
+        projected_completion_tokens=projected_completion_tokens,
+        cached_tokens=cached_tokens,
+        idea_id=idea.id,
+    )
+
+    if dry_run:
+        telemetry = TokenTelemetry(
+            model="gemini-2.5-pro (dry-run)",
+            fingerprint=fingerprint,
+            prompt_tokens=prompt_tokens,
+            cached_tokens=cached_tokens,
+            completion_tokens=projected_completion_tokens,
+            total_tokens=prompt_tokens + cached_tokens + projected_completion_tokens,
+            estimated_cost_usd=projected_cost,
+        )
+        record_telemetry_in_meta(meta_file, telemetry)
+        return chapter_file, False
+
+    # 5. Live generation or deterministic fallback
+    draft: ChapterDraft | None = None
+    actual_prompt_tokens = prompt_tokens
+    actual_completion_tokens = projected_completion_tokens
+    actual_cached_tokens = cached_tokens
+    latency_ms = 0
+    used_model = "offline-mock"
+
+    if live_available:
+        try:
+            active_client = client or get_genai_client()
+            t0 = time.perf_counter()
+
+            if cache_name:
+                config = types.GenerateContentConfig(
+                    cached_content=cache_name,
+                    response_mime_type="application/json",
+                    response_schema=ChapterManuscriptSchema,
+                    temperature=0.4,
+                )
+                full_contents = prompt_template
+            else:
+                config = types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=ChapterManuscriptSchema,
+                    temperature=0.4,
+                )
+                full_contents = (
+                    f"## Author Persona & Guidelines\n{author_persona}\n\n"
+                    f"## Task Directive\n{prompt_template}\n\n"
+                    f"## Research Notes\n{clamped_research}"
+                )
+
+            response = active_client.models.generate_content(
+                model="gemini-2.5-pro",
+                contents=full_contents,
+                config=config,
+            )
+            latency_ms = int((time.perf_counter() - t0) * 1000)
+            used_model = "gemini-2.5-pro"
+
+            if hasattr(response, "usage_metadata") and response.usage_metadata:
+                actual_prompt_tokens = getattr(
+                    response.usage_metadata, "prompt_token_count", prompt_tokens
+                )
+                actual_completion_tokens = getattr(
+                    response.usage_metadata, "candidates_token_count", projected_completion_tokens
+                )
+                actual_cached_tokens = (
+                    getattr(response.usage_metadata, "cached_content_token_count", cached_tokens)
+                    or 0
+                )
+
+            parsed: ChapterManuscriptSchema = response.parsed
+            draft = ChapterDraft(
+                idea_id=idea.id,
+                chapter_num=num,
+                title=idea.title,
+                subtitle=f"Chapter {num} · 100 Ideas for Engineering Leaders",
+                lead_punch=parsed.lead_punch,
+                mechanics_section=parsed.mechanics_section,
+                economic_section=parsed.economic_section,
+                hype_section=parsed.hype_section,
+                takeaways=parsed.takeaways,
+                citations=parsed.citations,
+                illustration_path=illustration_rel,
+            )
+        except Exception:
+            draft = None
+
+    if draft is None:
+        draft = build_chapter_draft(
+            idea=idea,
+            research_content=research_content,
+            metaphor=metaphor,
+            illustration_rel_path=illustration_rel,
+            chapter_num=chapter_num,
+        )
+
+    # Record spend in accumulator
+    actual_cost = estimate_cost(
+        model=used_model,
+        prompt_tokens=actual_prompt_tokens,
+        completion_tokens=actual_completion_tokens,
+        cached_tokens=actual_cached_tokens,
+    )
+    gov.record_usage(
+        prompt_tokens=actual_prompt_tokens,
+        completion_tokens=actual_completion_tokens,
+        cached_tokens=actual_cached_tokens,
+        cost_usd=actual_cost,
+    )
+
+    # 6. Atomic write of chapter.md
     temp_file: Path = book_dir / ".chapter.md.tmp"
     temp_file.write_text(draft.to_markdown(), encoding="utf-8")
     temp_file.replace(chapter_file)
 
-    # Update meta.yaml
-    meta_file: Path = idea_dir / "meta.yaml"
+    # 7. Record Token Telemetry in meta.yaml
+    telemetry = TokenTelemetry(
+        model=used_model,
+        fingerprint=fingerprint,
+        prompt_tokens=actual_prompt_tokens,
+        cached_tokens=actual_cached_tokens,
+        completion_tokens=actual_completion_tokens,
+        total_tokens=actual_prompt_tokens + actual_cached_tokens + actual_completion_tokens,
+        estimated_cost_usd=actual_cost,
+        latency_ms=latency_ms,
+    )
+    record_telemetry_in_meta(meta_file, telemetry)
+
+    # Update meta.yaml stage
     if meta_file.is_file():
         try:
             meta_data: Any = yaml.safe_load(meta_file.read_text(encoding="utf-8"))

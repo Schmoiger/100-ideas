@@ -25,8 +25,11 @@ def process_book_chapter(
     do_draft: bool = True,
     do_compile: bool = True,
     force: bool = False,
+    force_llm: bool = False,
+    dry_run: bool = False,
     overwrite_manual: bool = False,
     chapter_num: int | None = None,
+    client: Any = None,
 ) -> dict[str, Any]:
     """Execute end-to-end book drafting and typesetting for an idea.
 
@@ -52,8 +55,11 @@ def process_book_chapter(
             idea=idea,
             ideas_root=ideas_root,
             force=force,
+            force_llm=force_llm,
+            dry_run=dry_run,
             overwrite_manual=overwrite_manual,
             chapter_num=chapter_num,
+            client=client,
         )
         results["chapter_md"] = str(chapter_md)
         results["draft_generated"] = draft_gen
