@@ -36,7 +36,7 @@
 | TASK-017 | high | completed | TASK-015 | Implement multi-volume book mapping configuration (`config/volumes.yaml`) and compilation |
 | TASK-018 | high | completed | TASK-015 | Implement state machine and manual edit protection safeguards (`human_modified`) in `meta.yaml` |
 | TASK-019 | medium | completed | TASK-018 | Implement interactive agentic chat revision loop and hierarchical channel syndication (SSOT) |
-| TASK-020 | high | pending | TASK-015 | Implement live Gemini Python SDK integration, prompt caching, and `gemini-sdk` skill |
+| TASK-020 | high | completed | TASK-015 | Implement live Gemini Python SDK integration, prompt caching, and `gemini-sdk` skill |
 
 ---
 
@@ -158,7 +158,7 @@
   - Refinement commands (`ideas revise`) support targeted section updates without rewriting entire documents, with automated metadata audit logging (`revisions`), `--syndicate`, and `--typeset` flags.
 
 ### TASK-020: Live Gemini Python SDK Integration, Token Guard Rails & `gemini-sdk` Skill
-- **Status**: Pending
+- **Status**: Completed
 - **Architecture Reference**: [review-continuous-publishing.md §6](file:///Users/avi/Repos/100-ideas/artefacts/architecture/review-continuous-publishing.md#6-live-gemini-sdk-integration-google-genai--token-governance) (Resolves DEF-004)
 - **Description**: Author the canonical `gemini-sdk` skill (`context/skills/gemini-sdk.md` and projected `.agents/skills/gemini-sdk/SKILL.md`) providing procedural guidance for modern `google-genai` Python SDK patterns (client initialization, Pydantic structured output, Gemini Context Caching, Imagen 3, and token telemetry). Implement robust token burn guard rails and circuit breakers across `services/enrichment/` and `services/typesetting/` to prevent runaway API spend during live execution. Integrate `google-genai` into `services/enrichment/researcher.py` and `services/typesetting/drafter.py` using tiered models (`gemini-2.5-flash`, `gemini-2.5-pro`, `imagen-3.0`).
 - **Token Burn Guard Rails**:

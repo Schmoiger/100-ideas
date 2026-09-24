@@ -34,6 +34,7 @@ Completed comprehensive Solution Architect Review (TASK-015) addressing the two 
 | TASK-017 | Implement multi-volume book mapping configuration (`config/volumes.yaml`) and compilation | complete | Declarative volumes config, dynamic chapter numbering, part dividers, CLI flags |
 | TASK-018 | Implement state machine and manual edit protection safeguards (`human_modified`) in `meta.yaml` | complete | State machine, safeguards, quality gates, dual asset resolution, review CLI |
 | TASK-019 | Implement interactive agentic chat revision loop and hierarchical channel syndication (SSOT) | complete | SSOT syndication (Book -> Blog -> Social), targeted section revision, `ideas revise` CLI |
+| TASK-020 | Implement live Gemini Python SDK (`google-genai`) integration with prompt caching and token governance | complete | Live Gemini SDK, prompt caching, token governance, circuit breakers, and `gemini-sdk` skill |
 
 ---
 
@@ -41,7 +42,7 @@ Completed comprehensive Solution Architect Review (TASK-015) addressing the two 
 
 | ID | Task | Priority | Depends On |
 |----|------|----------|------------|
-| TASK-020 | Implement live Gemini Python SDK (`google-genai`) integration with prompt caching and token governance | high | TASK-015 |
+| - | All planned tasks up to TASK-020 complete | - | - |
 
 ---
 
