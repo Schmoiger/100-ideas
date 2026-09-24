@@ -1,8 +1,70 @@
-# Example Architecture: Agentic Orchestration Harness
+# Architecture: 100-Ideas Agentic Publishing System
 
-THIS SECTION IS POPULATED AS AN EXAMPLE. THIS IS THE ARCHITECTURE FOR THE AGENTIC HARNESS AND SHOULD BE REPLACED BY THE ARCHITECTURE DEFINITION FOR YOUR PROJECT.
+> Authoritative architectural specification for the 100-Ideas content pipeline and publishing system.
+> Consumed by: solution-architect, python-coder, tech-lead, orchestrator.
 
-> This document is the authoritative reference for how the Agentic Orchestration Harness is built. Create it once the system has a deployed or locally-running form. Update it when the system changes — never let it describe intent; only describe reality. Consumed by: solution-architect, python-coder, tech-lead.
+**Canonical references**:
+- **Product Requirements**: `artefacts/product/requirements.md`
+
+---
+
+## 1. Prototype Architecture: Idea Ingestion & Selection Subsystem (§3.1)
+
+### 1.1 Overview & Data Flow
+
+```mermaid
+flowchart TD
+    subgraph IntakeSources["Intake Sources"]
+        Symlink["artefacts/product/100-ideas.md\n(Symlink or Workspace File)"]
+        InboxFile["artefacts/product/inbox.md\n(Incremental Append-Only)"]
+        ChatInput["CLI / Chat Interactive Intake\n(Direct Idea Submission)"]
+    end
+
+    subgraph SyncAndParse["Ingestion & Resolution"]
+        SyncManager["authoritative_sync\n(Resolves sandbox boundaries & caches snapshot)"]
+        BatchParser["table_parser\n(Extracts Title, Synopsis, Source Ref)"]
+        InboxParser["inbox_parser\n(Extracts markdown sections & parses metadata)"]
+    end
+
+    subgraph Governance["Governance & Selection"]
+        DedupEngine["dedup_engine\n(Title & Synopsis similarity detection)"]
+        IdeaSelector["selector\n(--idea N, --ideas N-M, --all, --tag/domain)"]
+    end
+
+    subgraph Storage["Intermediate Content Layer"]
+        IdeaStore["artefacts/content/ideas/{idea-id}/\n├── meta.yaml\n├── research/\n├── assets/\n├── book/\n└── blog/"]
+    end
+
+    Symlink --> SyncManager --> BatchParser
+    InboxFile --> InboxParser
+    ChatInput --> DedupEngine
+    BatchParser --> DedupEngine
+    InboxParser --> DedupEngine
+    DedupEngine --> IdeaSelector
+    IdeaSelector --> Storage
+```
+
+
+### 1.2 Key Design Decisions (Prototype)
+
+1. **Local Authoritative Snapshot for Sandbox Safety**:
+   - `artefacts/product/100-ideas.md` may point outside the workspace sandbox (e.g. Google Drive symlink).
+   - If symlink resolution fails due to permissions, the system falls back to `artefacts/product/100-ideas.snapshot.md`.
+   - A sync command (`python -m services.ingestion.cli sync`) copies the authoritative source into the snapshot when outside sandbox access is available.
+
+2. **Canonical Identification Scheme**:
+   - Batch catalog ideas receive deterministic sequential IDs: `idea-001`, `idea-002`, ..., based on their 1-indexed table row.
+   - Incremental inbox & chat ideas receive the next sequential ID or slugified UUID, ensuring zero collision with batch catalogue ideas.
+
+3. **Intermediate Folder Provisioning**:
+   - Upon ingestion/selection, each idea is initialized with `meta.yaml` containing structured YAML frontmatter (id, title, synopsis, source_reference, tags, status, linked_resources, timestamps).
+   - Standard subfolders (`research/`, `assets/`, `book/`, `blog/`) are scaffolded automatically.
+
+4. **Fuzzy Deduplication**:
+   - Normalised string matching (lowercase alphanumeric token matching) alerts on title or synopsis duplicates before provisioning.
+
+---
+
 
 **Canonical references**:
 

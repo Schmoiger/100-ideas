@@ -22,8 +22,8 @@
 | TASK-003 | high | pending | TASK-002 | Create or adapt workflow definition (e.g. `context/workflows/ideas-publishing.yaml`) |
 | TASK-004 | high | pending | TASK-002 | Author new specialized agents if required (e.g. illustrator, typesetter) in `context/agents/` |
 | TASK-005 | medium | pending | TASK-003, TASK-004 | Run `uv run agent-harness` to compile adapters and verify zero drift (`uv run agent-drift`) |
-| TASK-006 | high | pending | TASK-001 | Resolve `100-ideas.md` symlink/sandbox ingestion and test batch catalog parsing |
-| TASK-007 | medium | pending | TASK-006 | Implement incremental inbox ingestion parser (`artefacts/product/inbox.md`) |
+| TASK-006 | high | completed | TASK-001 | Resolve `100-ideas.md` symlink/sandbox ingestion and test batch catalog parsing |
+| TASK-007 | medium | completed | TASK-006 | Implement incremental inbox ingestion parser (`artefacts/product/inbox.md`) |
 | TASK-008 | high | pending | TASK-004 | Implement shared M:N resource library indexing and idea linking |
 | TASK-009 | high | pending | TASK-004 | Implement Gemini visual prompt derivation and image generation agent integration |
 | TASK-010 | high | pending | TASK-004 | Implement Book Mode drafting (author persona) and Typst typesetting pipeline |
