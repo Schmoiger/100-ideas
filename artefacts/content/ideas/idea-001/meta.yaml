@@ -26,3 +26,12 @@ blog_slug: idea-001-software-development-as-the-binding-enterprise-growth-constr
 blog_words: 465
 linkedin_post: blog/linkedin.md
 linkedin_chars: 1535
+human_modified: true
+review_status: needs_revision
+stage: human_review
+revisions:
+- target: book/chapter.md
+  section: takeaways
+  reviewed_by: Avi
+  timestamp: '2026-09-24T22:29:12.992928+00:00'
+  notes: Streamlined takeaways for clarity

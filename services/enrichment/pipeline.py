@@ -5,45 +5,16 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from services.enrichment.researcher import synthesise_research
 from services.enrichment.visuals import generate_visual_assets
 from services.ingestion.models import IdeaRecord
-from services.ingestion.parsers import parse_markdown_table
-from services.ingestion.provisioner import provision_idea
-from services.ingestion.sync import resolve_catalog_source
+from services.ingestion.provisioner import (
+    load_or_provision_idea,  # canonical location (TASK-021/022)
+)
 
-
-def load_or_provision_idea(
-    idea_id_or_num: str | int,
-    ideas_root: Path,
-    catalog_path: Path,
-    snapshot_path: Path,
-) -> IdeaRecord:
-    """Load an existing provisioned idea or provision it from catalogue."""
-    # Normalize ID string
-    target_id: str = (
-        f"idea-{int(idea_id_or_num):03d}" if str(idea_id_or_num).isdigit() else str(idea_id_or_num)
-    )
-
-    idea_dir: Path = ideas_root / target_id
-    meta_file: Path = idea_dir / "meta.yaml"
-
-    if meta_file.is_file():
-        meta_dict: Any = yaml.safe_load(meta_file.read_text(encoding="utf-8"))
-        if isinstance(meta_dict, dict):
-            return IdeaRecord.from_meta_dict(meta_dict)
-
-    # If not provisioned yet, find in catalogue table
-    resolved_src: Path = resolve_catalog_source(catalog_path, snapshot_path)
-    records: list[IdeaRecord] = parse_markdown_table(resolved_src)
-    for rec in records:
-        if rec.id.lower() == target_id.lower():
-            provision_idea(rec, ideas_root)
-            return rec
-
-    raise ValueError(f"Idea '{target_id}' could not be found in content store or catalogue.")
+# load_or_provision_idea is re-exported here for backward compatibility.
+# New callers should import directly from services.ingestion.provisioner.
+__all__ = ["load_or_provision_idea", "enrich_idea"]
 
 
 def enrich_idea(

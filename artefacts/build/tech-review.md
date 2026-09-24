@@ -10,9 +10,10 @@
 
 ## 1. Executive Summary & Architecture Health
 
-Following the successful implementation of live Gemini SDK integration, token governance, and prompt caching (TASK-020), this review conducts a holistic architectural assessment of the **100-Ideas Agentic Publishing System**. 
+Following the successful implementation of live Gemini SDK integration, token governance, and prompt caching (TASK-020), this review conducts a holistic architectural assessment of the **100-Ideas Agentic Publishing System**.
 
 The overall health of the system is strong:
+
 - All **219 unit and integration tests** pass cleanly with zero regression.
 - Canonical context and adapter drift checks report **0 drift** across runtime schemas.
 - Core business logic adheres to the **LESS Engineering Principles** (Lean, Ethical, Scalable, Sustainable), with strict token burn circuit breakers, cryptographic deduplication, and context caching.
@@ -66,6 +67,7 @@ flowchart TD
 ## 3. Detailed Findings & Cleanup Opportunities
 
 ### Finding 1: Inverted Dependency & Monolithic CLI Dispatcher (High Priority)
+
 - **Location**: `services/ingestion/cli.py` (Lines 1–1355)
 - **Severity**: High (Architectural Boundary Violation)
 - **Description**:
@@ -80,6 +82,7 @@ flowchart TD
   Furthermore, `services/ingestion/cli.py` suffers from low unit test coverage (56%, 259 missed statements) because testing has targeted backend services rather than the CLI entry point.
 - **Recommended Remediation**:
   Extract the system CLI dispatcher into a dedicated `services/cli/` (or `cli/`) package:
+
   ```
   services/cli/
   ├── __init__.py
@@ -92,11 +95,13 @@ flowchart TD
       ├── review.py            # review, mark-edited
       └── revise.py            # revise
   ```
+
   Update `pyproject.toml` entry point: `ideas = "services.cli.main:main"`.
 
 ---
 
 ### Finding 2: Cross-Domain Coupling in Idea Loading (Moderate Priority)
+
 - **Location**: `services/enrichment/pipeline.py` (Lines 18–47)
 - **Callers**:
   - `services/typesetting/pipeline.py` (Line 8)
@@ -112,6 +117,7 @@ flowchart TD
 ---
 
 ### Finding 3: SSOT Syndication Wiring, Inline Imports & Silent Fallback (High Priority)
+
 - **Locations**:
   - `services/publishing/drafter.py` (Lines 152–163)
   - `services/publishing/social.py` (Lines 49–57)
@@ -122,16 +128,17 @@ flowchart TD
   While TASK-019 successfully implemented Single Source of Truth syndication in `services/publishing/syndication.py`, three issues exist in production wiring:
   1. **Inline / Lazy Imports**: In `drafter.py:156` and `social.py:53`, syndication functions are imported dynamically inside function bodies (`from services.publishing.syndication import ...`). There are no circular dependencies preventing standard top-level imports.
   2. **Silent Degradation**: If `book/chapter.md` does not exist, `draft_blog_post` and `generate_linkedin_post` fall back silently to generating content from `idea.synopsis`. The return dictionary and CLI output report success without alerting the user that SSOT was bypassed. This risks unnoticed channel drift.
-  3. **Architecture vs Reality**: Section 5.1 of `architecture.md` depicts the blog syndicator as powered by `gemini-2.5-flash`. The current implementation in `syndication.py` is heuristic and template-driven.
+  3. **Architecture vs Reality**: Section 5.1 of `architecture.md` depicts the blog syndicator as powered by `gemini-3.8-flash`. The current implementation in `syndication.py` is heuristic and template-driven.
 - **Recommended Remediation**:
   1. Move syndication imports to top-level in `drafter.py` and `social.py`.
   2. Add an explicit `"syndicated_from"` field in the result payload (`"book/chapter.md"` or `"synopsis_fallback"`).
   3. Emit an explicit CLI warning when falling back: `Warning: Idea idea-XXX has not drafted book/chapter.md. Generating blog post from raw synopsis fallback.`
-  4. Record an ADR or backlog task for extending `syndication.py` with Gemini 2.5 Flash for nuanced transformation.
+  4. Record an ADR or backlog task for extending `syndication.py` with Gemini 3.8 Flash for nuanced transformation.
 
 ---
 
 ### Finding 4: Data Modeling Heterogeneity & Serialization Boilerplate (Moderate Priority)
+
 - **Locations**:
   - `services/ingestion/models.py` (Lines 16–220)
   - `services/typesetting/models.py` (Lines 10–55)
@@ -154,6 +161,7 @@ flowchart TD
 ---
 
 ### Finding 5: String Literals vs Formal Enumerations for Lifecycle States (Low Priority)
+
 - **Locations**:
   - `services/ingestion/state.py` (Lines 7–29)
   - `services/ingestion/models.py` (Lines 25, 67–75)
@@ -165,6 +173,7 @@ flowchart TD
   In contrast, `services/publishing/assets.py` correctly defines `class AssetTarget(str, Enum)`.
 - **Recommended Remediation**:
   Define formal `str`-backed enumerations:
+
   ```python
   class LifecycleStage(str, Enum):
       RAW = "raw"
@@ -183,6 +192,7 @@ flowchart TD
 ---
 
 ### Finding 6: Code Duplication in String & Text Utilities (Low Priority)
+
 - **Locations**:
   - `services/publishing/drafter.py` (Lines 16–26): `slugify`, `count_words`
   - `services/typesetting/drafter.py` (Line 100): `count_words`
@@ -196,6 +206,7 @@ flowchart TD
 ---
 
 ### Finding 7: Tooling & Subrepo Lint Drift (Low Priority)
+
 - **Locations**:
   - `typst/scripts/build.py` (E701, E702, E741, F401)
   - `typst/scripts/extract-mermaid.py` (F841, I001)
@@ -251,6 +262,7 @@ gantt
 **Status**: **APPROVED (with prioritized cleanup backlog)**
 
 **Justification**:
+
 - The current implementation is functionally sound, robustly tested (219/219 passing), and verified against the product requirements and live Gemini integration specs.
 - The identified cleanup items represent architectural refinement and tech-debt remediation rather than functional blockers.
 - Phase 1 and Phase 2 items can be scheduled as dedicated tasks in `artefacts/build/tasks.md` without impeding ongoing editorial workflows.
