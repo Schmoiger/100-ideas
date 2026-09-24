@@ -63,7 +63,7 @@ ignore = [
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-testpaths = ["context/scripts/tests", "services/ingestion/tests"]
+testpaths = ["context/scripts/tests", "services/ingestion/tests", "services/enrichment/tests"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["context", "services"]

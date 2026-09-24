@@ -65,14 +65,63 @@ flowchart TD
 
 ---
 
-## 2. Shared Content & Intermediate Storage (§3.2)
+## 2. Prototype Architecture: Content Enrichment Subsystem (§3.3)
 
-### 2.1 Directory Structure
+### 2.1 Overview & Enrichment Pipeline
+
+```mermaid
+flowchart TD
+    subgraph Intake["Idea Input"]
+        MetaYAML["artefacts/content/ideas/{idea-id}/meta.yaml"]
+        SharedResources["artefacts/content/resources/\n(M:N Whitepapers & Manifest)"]
+    end
+
+    subgraph ResearchPhase["Research Synthesis (REQ-ENR-001)"]
+        ResourceExtractor["resource_extractor\n(Extracts citations & empirical context)"]
+        EvidenceSynthesiser["evidence_synthesiser\n(Empirical data, economic trade-offs, counterarguments)"]
+        ResearchNotes["artefacts/content/ideas/{idea-id}/research/notes.md"]
+    end
+
+    subgraph VisualPhase["Visual Asset Generation (REQ-ENR-002, REQ-ENR-003, REQ-ENR-004)"]
+        PromptDeriver["prompt_deriver\n(Conceptual metaphor, anti-cliché rules)"]
+        PromptFile["artefacts/content/ideas/{idea-id}/assets/prompt.txt"]
+        VisualEngine["visual_generator\n(Gemini / Imagen API with fallback rendering)"]
+        Illustration["artefacts/content/ideas/{idea-id}/assets/illustration.png"]
+    end
+
+    MetaYAML --> ResourceExtractor
+    SharedResources --> ResourceExtractor
+    ResourceExtractor --> EvidenceSynthesiser --> ResearchNotes
+
+    MetaYAML --> PromptDeriver
+    ResearchNotes -.-> PromptDeriver
+    PromptDeriver --> PromptFile --> VisualEngine --> Illustration
+```
+
+
+### 2.2 Key Design Decisions (Enrichment)
+
+1. **Deterministic Resource Extraction Before Synthesis**:
+   - The research pipeline parses `meta.yaml` to identify linked resource IDs and locates matching files in `artefacts/content/resources/` (registered in `manifest.yaml`).
+   - If citations exist in `source_reference` (e.g. line numbers in `new-devx-vision.md`), the extractor pulls the exact textual paragraphs, eliminating ungrounded hallucinations.
+
+2. **Decoupled Visual Prompting & Independent Regeneration**:
+   - The visual prompt is persisted to `assets/prompt.txt` as a first-class artefact.
+   - The visual generation phase is isolated from research synthesis, allowing `--regenerate-image` to adjust imagery without triggering redundant research token expenditure (`REQ-ENR-004`).
+
+3. **Idempotent Intermediate Layer**:
+   - Prior to making expensive LLM or image generation calls, the subsystem checks if `research/notes.md` or `assets/illustration.png` exists (`REQ-ORC-005`). Reruns are skipped unless explicitly commanded via `--force`.
+
+---
+
+## 3. Shared Content & Intermediate Storage (§3.2)
+
+### 3.1 Directory Structure
 
 - `artefacts/content/ideas/{idea-id}/`
   - `meta.yaml`: Canonical idea state, lineage, tags, timestamps, and model/token telemetry.
-  - `research/`: Idea-specific research synthesis and notes.
-  - `assets/`: Generated visuals and diagrams.
+  - `research/`: Idea-specific research synthesis and notes (`notes.md`).
+  - `assets/`: Generated visuals (`illustration.png`, `prompt.txt`).
   - `book/`: Typeset book chapter drafts.
   - `blog/`: Publication-ready blog drafts and platform frontmatter.
 - `artefacts/content/resources/`
@@ -81,9 +130,11 @@ flowchart TD
 
 ---
 
-## 3. Related Documents
+## 4. Related Documents
 
 - **Product Requirements**: [requirements.md](product/requirements.md)
+- **Conceptual Data Model**: [data-model.md](data-model.md)
 - **Idea Catalogue**: [100-ideas.md](product/100-ideas.md)
 - **Ideas Inbox**: [inbox.md](product/inbox.md)
 - **Task Tracking**: [tasks.md](../build/tasks.md)
+

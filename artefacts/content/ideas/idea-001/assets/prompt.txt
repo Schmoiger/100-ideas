@@ -1,0 +1,12 @@
+# Visual Generation Prompt for idea-001
+
+**Metaphor**: An hourglass neck transitioning into an expanding brass conduit
+**Subject**: A conceptual editorial metaphor representing 'Software Development as the Binding Enterprise Growth Constraint': An hourglass neck transitioning into an expanding brass conduit. Refinement directive: Monochrome copper engraving.
+**Composition**: Dynamic diagonal rhythm illustrating kinetic energy and structural transition between states
+**Mood & Lighting**: High-contrast chiaroscuro, warm amber directional beam cutting through deep obsidian shadows
+**Style**: Bauhaus abstract assemblage, balanced geometric primitives, primary tonal harmony, archival catalog aesthetic
+**Negative Prompt**: glowing circuit boards, matrix code rain, neon holograms, literal human faces, hyper-realistic CGI robots, cliché floating brain, distorted anatomy, blurry text, watermark
+
+## Final Prompt Payload
+
+A conceptual editorial metaphor representing 'Software Development as the Binding Enterprise Growth Constraint': An hourglass neck transitioning into an expanding brass conduit. Refinement directive: Monochrome copper engraving. Dynamic diagonal rhythm illustrating kinetic energy and structural transition between states. Lighting: High-contrast chiaroscuro, warm amber directional beam cutting through deep obsidian shadows. Style: Bauhaus abstract assemblage, balanced geometric primitives, primary tonal harmony, archival catalog aesthetic. Award-winning editorial book illustration, high fidelity, 8k resolution, intentional graphic discipline.

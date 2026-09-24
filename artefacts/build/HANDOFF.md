@@ -1,21 +1,25 @@
-# Handoff: Idea Ingestion & Selection Subsystem Prototype
+# Handoff: Content Enrichment Subsystem Prototype (§3.3)
 
 **From**: @orchestrator
-**To**: @solution-architect
+**To**: @python-coder
 **Date**: 2026-09-24
 **Workflow**: prototype
-**Phase**: validate
+**Phase**: ready
 **Status**: ready
+
+---
+
+## Agent File Scopes
+
+| Agent | Scope | Role |
+|-------|-------|------|
+| @orchestrator | `artefacts/` | Workflow coordinator, sign-off and git merge readiness |
 
 ---
 
 ## Summary
 
-Completed the prototype workflow for Idea Ingestion & Selection Subsystem (§3.1).
-- Minimal architecture defined in `artefacts/architecture/architecture.md`.
-- Implemented `services/ingestion/` (models, catalog sync/snapshot, markdown table parser, incremental inbox parser, deduplication engine, idea selector, folder provisioner, and CLI).
-- Resolved sandbox symlink constraint via local authoritative snapshot `artefacts/product/100-ideas.snapshot.md`.
-- Validated via 5/5 passing smoke tests covering all core ingestion and selection capabilities.
+Completed prototype workflow for the Content Enrichment Subsystem (§3.3 of `artefacts/product/requirements.md`). All acceptance criteria (REQ-ENR-001 through REQ-ENR-004, REQ-ORC-005) verified with passing smoke tests and CLI execution.
 
 ---
 
@@ -23,10 +27,11 @@ Completed the prototype workflow for Idea Ingestion & Selection Subsystem (§3.1
 
 | ID | Task | Status | Notes |
 |----|------|--------|-------|
-| TASK-001 | Define Product Requirements (§3.1) | complete | requirements.md line 30 |
-| TASK-PROTO-DESIGN | Sketch minimal architecture for idea ingestion | complete | architecture.md §1 |
-| TASK-PROTO-BUILD | Build working prototype for idea ingestion CLI and parsers | complete | `services/ingestion/` |
-| TASK-PROTO-VAL | Run smoke test on ingestion prototype | complete | 5/5 tests passing |
+| TASK-ING-PROTO | Complete Idea Ingestion Subsystem prototype | complete | Merged in PR #2 |
+| REQ-ENR-SPECS | Define Content Enrichment requirements (§3.3) | complete | requirements.md L61 |
+| TASK-ENR-DESIGN | Sketch minimal architecture for enrichment subsystem | complete | architecture.md §2 |
+| TASK-ENR-BUILD | Build research synthesiser and visual generator services | complete | services/enrichment/ |
+| TASK-ENR-VAL | Run smoke tests and CLI validation on enrichment prototype | complete | 6 passed in test_smoke.py |
 
 ---
 
@@ -34,17 +39,8 @@ Completed the prototype workflow for Idea Ingestion & Selection Subsystem (§3.1
 
 | ID | Task | Priority | Depends On |
 |----|------|----------|------------|
-| TASK-008 | Implement shared M:N resource library indexing and idea linking | high | TASK-PROTO-BUILD |
-| TASK-009 | Implement visual prompt derivation and image generation agent integration | high | TASK-008 |
-| TASK-010 | Implement Book Mode drafting and Typst typesetting pipeline | high | TASK-008 |
-
----
-
-## Statistics
-
-- **Tests**: 5/5 passing
-- **Files Created**: 9
-- **Files Modified**: 2
+| TASK-010 | Implement Book Mode drafting and Typst typesetting | high | TASK-ENR-VAL |
+| TASK-011 | Implement Blog Mode drafting, Hostinger frontmatter, and LinkedIn exports | high | TASK-ENR-VAL |
 
 ---
 
@@ -52,16 +48,6 @@ Completed the prototype workflow for Idea Ingestion & Selection Subsystem (§3.1
 
 - **Requirements**: `artefacts/product/requirements.md`
 - **Architecture**: `artefacts/architecture/architecture.md`
-- **Catalog**: `artefacts/product/100-ideas.md`
-- **Inbox**: `artefacts/product/inbox.md`
-- **Content Store**: `artefacts/content/ideas/`
-
----
-
-## Context
-
-**Architecture Reference**: `artefacts/architecture/architecture.md`
-**Key Decisions**:
-- Fast iteration prototype under `prototype.yaml` workflow rules.
-- Support dual ingestion (batch markdown table + incremental inbox/chat).
-- Resolve sandbox symlink limitation via local workspace snapshot / sync mechanism.
+- **Data Model**: `artefacts/architecture/data-model.md`
+- **Shared Resources**: `artefacts/content/resources/`
+- **Enriched Storage**: `artefacts/content/ideas/{id}/`
