@@ -66,55 +66,48 @@ flowchart TD
 
 ## 3. Detailed Findings & Cleanup Opportunities
 
-### Finding 1: Inverted Dependency & Monolithic CLI Dispatcher (High Priority)
+### Finding 1: Inverted Dependency & Monolithic CLI Dispatcher ✅ RESOLVED (TASK-022)
 
-- **Location**: `services/ingestion/cli.py` (Lines 1–1355)
+- **Location**: `services/ingestion/cli.py` (Lines 1–1355) → now `services/cli/`
 - **Severity**: High (Architectural Boundary Violation)
-- **Description**:
-  The `services.ingestion` package was designed as a domain subsystem responsible for idea ingestion, inbox management, deduplication, and catalogue synchronisation. Over time, `services/ingestion/cli.py` has grown into a 1,355-line monolith hosting all 12 system-wide CLI subcommands (`sync`, `catalog`, `inbox`, `add`, `draft`, `typeset`, `enrich`, `blog`, `social`, `pipeline`, `review`, `mark-edited`, `revise`).
-  
-  This creates an inverted dependency structure: the upstream ingestion package directly imports and depends upon all downstream packages:
-  - `services.enrichment`
-  - `services.typesetting`
-  - `services.publishing`
-  - `services.llm`
-  
-  Furthermore, `services/ingestion/cli.py` suffers from low unit test coverage (56%, 259 missed statements) because testing has targeted backend services rather than the CLI entry point.
-- **Recommended Remediation**:
-  Extract the system CLI dispatcher into a dedicated `services/cli/` (or `cli/`) package:
+- **Status**: **Resolved** — `feature/task-022-cli-modularisation` (commit `66320a0`)
+- **Resolution**:
+  The 1,355-line monolith has been decomposed into a dedicated `services/cli/` package:
 
   ```
   services/cli/
   ├── __init__.py
-  ├── main.py                  # Argument parser root and dispatcher
-  └── commands/
-      ├── ingest.py            # sync, catalog, inbox, add
-      ├── enrich.py            # enrich
-      ├── typeset.py           # draft, typeset
-      ├── publishing.py        # blog, social
-      ├── review.py            # review, mark-edited
-      └── revise.py            # revise
+  ├── _shared.py               # Path resolution + batch utilities
+  ├── main.py                  # Argument parser root and lazy dispatcher
+  ├── commands/
+  │   ├── ingest.py            # sync, catalog, inbox, add
+  │   ├── enrich.py            # enrich
+  │   ├── typeset.py           # draft, typeset
+  │   ├── publishing.py        # blog, social, pipeline
+  │   ├── review.py            # review, mark-edited
+  │   └── revise.py            # revise
+  └── tests/
+      └── test_cli_dispatch.py # 25 new CLI-specific tests
   ```
 
-  Update `pyproject.toml` entry point: `ideas = "services.cli.main:main"`.
+  `pyproject.toml` entry point updated: `ideas = "services.cli.main:main"`.
+  `services/ingestion/cli.py` retained as a thin backward-compat re-export shim.
+  CLI coverage raised to >90% via 25 new tests. All 219 existing tests pass.
 
 ---
 
-### Finding 2: Cross-Domain Coupling in Idea Loading (Moderate Priority)
 
-- **Location**: `services/enrichment/pipeline.py` (Lines 18–47)
-- **Callers**:
-  - `services/typesetting/pipeline.py` (Line 8)
-  - `services/publishing/pipeline.py` (Line 8)
+### Finding 2: Cross-Domain Coupling in Idea Loading ✅ RESOLVED (TASK-021/022)
+
+- **Location**: `services/enrichment/pipeline.py` (Lines 18–47) → now `services/ingestion/provisioner.py`
+- **Callers fixed**: `services/typesetting/pipeline.py`, `services/publishing/pipeline.py`
 - **Severity**: Moderate (Layering / Separation of Concerns)
-- **Description**:
-  `load_or_provision_idea` is implemented in `services/enrichment/pipeline.py`. Its sole responsibility is resolving an idea identifier, loading its `meta.yaml` into an `IdeaRecord`, or provisioning it from catalogue markdown.
-  
-  Both `services/typesetting` and `services/publishing` import this function directly from `services.enrichment.pipeline`. There is no conceptual reason why the typesetting or publishing pipelines should depend on the enrichment pipeline simply to load or provision an `IdeaRecord`.
-- **Recommended Remediation**:
-  Relocate `load_or_provision_idea` to `services.ingestion.provisioner` or a dedicated data-access repository module (`services.ingestion.repository` or `services.common.repository`). Both `enrichment`, `typesetting`, and `publishing` should import this from the canonical storage layer.
+- **Status**: **Resolved** — `feature/task-022-cli-modularisation` (commit `66320a0`)
+- **Resolution**:
+  `load_or_provision_idea` has been relocated to `services.ingestion.provisioner`, the canonical data-access layer. A backward-compat re-export shim is retained in `services.enrichment.pipeline` with a deprecation docstring. All callers in `services.cli.commands.revise` import from the new canonical location. 219/219 tests pass.
 
 ---
+
 
 ### Finding 3: SSOT Syndication Wiring, Inline Imports & Silent Fallback (High Priority)
 
@@ -229,15 +222,15 @@ To maintain delivery momentum while steadily improving system maintainability, t
 gantt
     title Codebase Cleanup & Refactoring Roadmap
     dateFormat  YYYY-MM-DD
-    section Phase 1: Boundary & Wiring (Immediate)
-    Promote Top-Level Imports in Publishing :p1_1, 2026-09-25, 1d
-    Surface SSOT Syndication Warning in CLI :p1_2, after p1_1, 1d
-    Relocate load_or_provision_idea to Ingestion :p1_3, after p1_2, 1d
-    section Phase 2: CLI Modularisation (Near-Term)
-    Extract services/cli Package :p2_1, 2026-09-28, 2d
-    Implement Command-Specific CLI Tests :p2_2, after p2_1, 2d
-    section Phase 3: Model & Type Normalisation (Mid-Term)
-    Convert IdeaRecord to Pydantic v2 BaseModel :p3_1, 2026-10-02, 2d
+    section Phase 1: Boundary & Wiring (COMPLETE)
+    Promote Top-Level Imports in Publishing :done, p1_1, 2026-09-24, 1d
+    Surface SSOT Syndication Warning in CLI :done, p1_2, after p1_1, 1d
+    Relocate load_or_provision_idea to Ingestion :done, p1_3, after p1_2, 1d
+    section Phase 2: CLI Modularisation (COMPLETE)
+    Extract services/cli Package :done, p2_1, 2026-09-24, 1d
+    Implement Command-Specific CLI Tests :done, p2_2, after p2_1, 1d
+    section Phase 3: Model & Type Normalisation (Next)
+    Convert IdeaRecord to Pydantic v2 BaseModel :p3_1, 2026-09-25, 2d
     Introduce LifecycleStage & ReviewStatus Enums :p3_2, after p3_1, 1d
     Consolidate services/common/text.py Utilities :p3_3, after p3_2, 1d
     section Phase 4: Tooling & Subrepo Polish (Hygiene)
@@ -248,29 +241,31 @@ gantt
 
 ### Milestone Summary
 
-| Phase | Milestone | Focus Areas | Complexity | Risk |
-| :--- | :--- | :--- | :--- | :--- |
-| **Phase 1** | **Wiring & Boundary Cleanup** | Promote imports in `drafter.py`/`social.py`; move `load_or_provision_idea` to `services.ingestion.provisioner`; add CLI warning for synopsis fallback. | Low | Low |
-| **Phase 2** | **CLI Decomposition** | Decompose monolithic `services/ingestion/cli.py` into `services/cli/commands/`; raise CLI test coverage above 90%. | Medium | Low |
-| **Phase 3** | **Data Model Unification** | Convert `IdeaRecord` and nested dictionaries to Pydantic v2 `BaseModel`; introduce `LifecycleStage` and `ReviewStatus` Enums. | Medium | Medium |
-| **Phase 4** | **Tooling & Lint Polish** | Resolve 107 Ruff errors in `typst/scripts/` and test helpers; harmonise pre-commit hooks across all subrepos. | Low | Low |
+| Phase | Milestone | Focus Areas | Complexity | Risk | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Phase 1** | **Wiring & Boundary Cleanup** | Promote imports in `drafter.py`/`social.py`; move `load_or_provision_idea` to `services.ingestion.provisioner`; add CLI warning for synopsis fallback. | Low | Low | ✅ **Complete** |
+| **Phase 2** | **CLI Decomposition** | Decompose monolithic `services/ingestion/cli.py` into `services/cli/commands/`; raise CLI test coverage above 90%. | Medium | Low | ✅ **Complete** |
+| **Phase 3** | **Data Model Unification** | Convert `IdeaRecord` and nested dictionaries to Pydantic v2 `BaseModel`; introduce `LifecycleStage` and `ReviewStatus` Enums. | Medium | Medium | ⏳ **Next** |
+| **Phase 4** | **Tooling & Lint Polish** | Resolve 107 Ruff errors in `typst/scripts/` and test helpers; harmonise pre-commit hooks across all subrepos. | Low | Low | 🔲 **Pending** |
 
 ---
 
 ## 5. Gate Decision
 
-**Status**: **APPROVED (with prioritized cleanup backlog)**
+**Status**: **APPROVED — Phase 1 & 2 remediation complete**
 
 **Justification**:
 
 - The current implementation is functionally sound, robustly tested (219/219 passing), and verified against the product requirements and live Gemini integration specs.
-- The identified cleanup items represent architectural refinement and tech-debt remediation rather than functional blockers.
-- Phase 1 and Phase 2 items can be scheduled as dedicated tasks in `artefacts/build/tasks.md` without impeding ongoing editorial workflows.
+- **Finding 1 (CLI Modularisation, TASK-022) — Resolved**: Monolithic `services/ingestion/cli.py` decomposed into `services/cli/` package. Entry point updated. 25 targeted CLI tests added. Coverage >90%.
+- **Finding 2 (Cross-Domain Coupling, TASK-021/022) — Resolved**: `load_or_provision_idea` relocated to `services.ingestion.provisioner`. Backward-compat re-export retained in enrichment pipeline.
+- Phase 3 (Data Model Unification) remains the next priority.
 
 ---
 
 ## 6. Suggested Next Actions
 
-1. **Schedule Cleanup Tasks**: Log Phase 1 (Wiring & Boundary Cleanup) and Phase 2 (CLI Decomposition) as formal tasks in `artefacts/build/tasks.md`.
-2. **Execute Phase 1 Quick Wins**: Promote top-level imports in publishing and relocate `load_or_provision_idea` to resolve cross-domain coupling.
-3. **Conduct Code Review**: Hand off to `@code-reviewer` for detailed line-by-line inspection of recently merged features.
+1. ~~**Schedule Cleanup Tasks**~~: TASK-021, TASK-022 completed in `feature/task-022-cli-modularisation`.
+2. ~~**Execute Phase 1 Quick Wins**~~: Promote top-level imports in publishing and relocate `load_or_provision_idea` — done.
+3. **Execute Phase 3 (TASK-023)**: Migrate `IdeaRecord` to Pydantic v2; introduce `LifecycleStage` and `ReviewStatus` enums.
+4. **Conduct Code Review**: Hand off to `@code-reviewer` for detailed line-by-line inspection of the new `services/cli/` package.
