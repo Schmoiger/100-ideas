@@ -32,7 +32,7 @@
 | TASK-013 | high | completed | - | Implement batch processing and pipeline runner in CLI (REQ-ORC-001 - REQ-ORC-005) |
 | TASK-014 | high | completed | - | Verify and validate all Non-Functional Requirements (NFR-TOK, NFR-QLT, NFR-EXT) |
 | TASK-015 | critical | completed | TASK-014 | Solution Architect Review: Continuous Ingestion, Human-in-the-Loop, and Multi-Volume Architecture |
-| TASK-016 | high | pending | TASK-015 | Refactor continuous ingestion lifecycle, inbox archiving, and decouple idea ID from chapter numbers |
+| TASK-016 | high | completed | TASK-015 | Refactor continuous ingestion lifecycle, inbox archiving, and decouple idea ID from chapter numbers |
 | TASK-017 | high | pending | TASK-015 | Implement multi-volume book mapping configuration (`config/volumes.yaml`) and compilation |
 | TASK-018 | high | pending | TASK-015 | Implement state machine and manual edit protection safeguards (`human_modified`) in `meta.yaml` |
 | TASK-019 | medium | pending | TASK-018 | Implement interactive agentic chat revision loop and hierarchical channel syndication (SSOT) |
@@ -119,13 +119,14 @@
   - Review sign-off document produced in `artefacts/architecture/review-continuous-publishing.md`.
 
 ### TASK-016: Continuous Ingestion Lifecycle & ID Decoupling
-- **Status**: Pending
+- **Status**: Completed
 - **Architecture Reference**: [review-continuous-publishing.md §3](file:///Users/avi/Repos/100-ideas/artefacts/architecture/review-continuous-publishing.md#3-continuous-ingestion-lifecycle--decoupled-id-architecture) (Resolves DEF-001, DEF-002)
 - **Description**: Refactor ingestion subsystem to support continuous and irregular intake via `inbox.md`. Move processed inbox entries to `inbox-archive.md` (or update with status markers). Decouple internal idea identifiers (e.g. `idea-<slug>` or stable sequence) from publication chapter numbering. Remove hardcoded `max_id_num = 100` ceiling in `cli.py`.
 - **Acceptance Criteria**:
   - Ingesting an idea from `inbox.md` updates the inbox file without re-parsing processed items on subsequent runs.
-  - Arbitrary number of ideas supported (> 100) with deterministic duplicate detection.
-  - Idea directories can be provisioned at any time without resetting or relying on sequential batch index.
+  - Processed ideas archived into `artefacts/product/inbox-archive.md` with timestamp and target ID.
+  - Ideas can have arbitrary stable identifiers (supporting >100 ideas), with chapter numbering assigned dynamically during book assembly.
+  - Dynamic index calculation (`get_next_idea_number`) without hardcoded 100 limit.
 
 ### TASK-017: Multi-Volume Book Configuration & Mapping
 - **Status**: Pending
