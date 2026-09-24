@@ -1,0 +1,39 @@
+# 100-Ideas Multi-Volume Publication Configuration (TASK-017)
+# Declarative volume mappings grouping curated ideas into thematic books.
+# Architecture specification: artefacts/architecture/review-continuous-publishing.md §4
+
+version: "1.0"
+
+volumes:
+  volume-1:
+    title: "100 Ideas: Volume 1 — Core SDLC & Engineering Friction"
+    subtitle: "A Handbook for Technology Leaders"
+    author: "AS"
+    brand: "typst/brands/neutral.typ"
+    output_pdf: "artefacts/content/book/volume-1.pdf"
+    parts:
+      - title: "Part I: Delivery Velocity & Bottlenecks"
+        description: "Deconstructing developer latency, typing speed, and cognitive load."
+        chapters:
+          - idea_id: "idea-001"
+            chapter_title_override: null
+          - idea_id: "idea-014"
+            chapter_title_override: null
+      - title: "Part II: Architectural Contracts & Verification"
+        description: "Deterministic guard rails, contract testing, and architectural integrity."
+        chapters:
+          - idea_id: "idea-005"
+            chapter_title_override: null
+
+  volume-2:
+    title: "100 Ideas: Volume 2 — Platform Economics & Autonomous Agents"
+    subtitle: "Navigating the Generational Shift to Autonomous Software Delivery"
+    author: "AS"
+    brand: "typst/brands/neutral.typ"
+    output_pdf: "artefacts/content/book/volume-2.pdf"
+    parts:
+      - title: "Part I: Agentic Guard Rails & Economic Constraints"
+        description: "Economic equations and blast-radius control for autonomous agent swarms."
+        chapters:
+          - idea_id: "idea-102"
+            chapter_title_override: null
