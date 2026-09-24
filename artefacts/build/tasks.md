@@ -33,7 +33,7 @@
 | TASK-014 | high | completed | - | Verify and validate all Non-Functional Requirements (NFR-TOK, NFR-QLT, NFR-EXT) |
 | TASK-015 | critical | completed | TASK-014 | Solution Architect Review: Continuous Ingestion, Human-in-the-Loop, and Multi-Volume Architecture |
 | TASK-016 | high | completed | TASK-015 | Refactor continuous ingestion lifecycle, inbox archiving, and decouple idea ID from chapter numbers |
-| TASK-017 | high | pending | TASK-015 | Implement multi-volume book mapping configuration (`config/volumes.yaml`) and compilation |
+| TASK-017 | high | completed | TASK-015 | Implement multi-volume book mapping configuration (`config/volumes.yaml`) and compilation |
 | TASK-018 | high | pending | TASK-015 | Implement state machine and manual edit protection safeguards (`human_modified`) in `meta.yaml` |
 | TASK-019 | medium | pending | TASK-018 | Implement interactive agentic chat revision loop and hierarchical channel syndication (SSOT) |
 | TASK-020 | high | pending | TASK-015 | Implement live Gemini Python SDK integration, prompt caching, and `gemini-sdk` skill |
@@ -129,7 +129,7 @@
   - Dynamic index calculation (`get_next_idea_number`) without hardcoded 100 limit.
 
 ### TASK-017: Multi-Volume Book Configuration & Mapping
-- **Status**: Pending
+- **Status**: Completed
 - **Architecture Reference**: [review-continuous-publishing.md §4](file:///Users/avi/Repos/100-ideas/artefacts/architecture/review-continuous-publishing.md#4-multi-volume-book-configuration--compilation-configvolumesyaml) (Resolves DEF-002)
 - **Description**: Implement flexible volume mapping configuration (`config/volumes.yaml`) allowing arbitrary ideas to be mapped to specific volumes (e.g. 100 ideas per book, thematic volumes), parts, and ordered chapter slots. Update Typst compiler to generate volume-specific PDFs with dedicated TOC and introduction.
 - **Acceptance Criteria**:

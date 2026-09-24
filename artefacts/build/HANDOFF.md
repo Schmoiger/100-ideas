@@ -31,6 +31,7 @@ Completed comprehensive Solution Architect Review (TASK-015) addressing the two 
 | TASK-014 | Verify and validate all Non-Functional Requirements | complete | All NFR tests passing |
 | TASK-015 | Solution Architect Review: Continuous Ingestion, Human-in-the-Loop, and Multi-Volume Architecture | complete | review-continuous-publishing.md delivered |
 | TASK-016 | Refactor continuous ingestion lifecycle, inbox archiving, and decouple idea ID from chapter numbers | complete | Continuous intake queue, inbox-archive.md, decoupled IDs |
+| TASK-017 | Implement multi-volume book mapping configuration (`config/volumes.yaml`) and compilation | complete | Declarative volumes config, dynamic chapter numbering, part dividers, CLI flags |
 
 ---
 
@@ -38,7 +39,6 @@ Completed comprehensive Solution Architect Review (TASK-015) addressing the two 
 
 | ID | Task | Priority | Depends On |
 |----|------|----------|------------|
-| TASK-017 | Implement multi-volume book mapping configuration (`config/volumes.yaml`) and compilation | high | TASK-015 |
 | TASK-018 | Implement state machine and manual edit protection safeguards (`human_modified`) in `meta.yaml` | high | TASK-015 |
 | TASK-019 | Implement interactive agentic chat revision loop and hierarchical channel syndication (SSOT) | medium | TASK-018 |
 | TASK-020 | Implement live Gemini Python SDK (`google-genai`) integration with prompt caching and token governance | high | TASK-015 |
@@ -50,5 +50,6 @@ Completed comprehensive Solution Architect Review (TASK-015) addressing the two 
 - **Requirements**: `artefacts/product/requirements.md`
 - **Architecture**: `artefacts/architecture/architecture.md`
 - **Data Model**: `artefacts/architecture/data-model.md`
+- **Volume Configuration**: `config/volumes.yaml`
 - **Shared Resources**: `artefacts/content/resources/`
 - **Enriched Storage**: `artefacts/content/ideas/{id}/`

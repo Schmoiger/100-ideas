@@ -76,6 +76,7 @@ graph TD
 - **Author Persona Drafter (`REQ-BOK-001`, `REQ-BOK-002`)**: Implements the Amara Osei persona (`context/persona/author.md`)—prioritising information density, economic reality, bold takeaway lead-ins, and hype puncturing. Supports decoupled chapter numbers.
 - **Typst Translator (`REQ-BOK-003`)**: Converts semantic Markdown into clean Typst markup (`chapter.typ`), embedding callouts and vector-scaled figures.
 - **Publication-Grade PDF Compilation (`REQ-BOK-004`, `REQ-BOK-005`)**: Uses the subrepo Typst design system (`typst/brands/neutral.typ`) to compile single chapters and unified multi-chapter volumes with Table of Contents and dynamic chapter ordering.
+- **Declarative Multi-Volume Compilation (`config/volumes.yaml`)**: Maps curated ideas into thematic publication volumes with custom ordering, thematic parts, descriptions, and chapter title overrides. Dynamically synthesises part divider pages, sequential chapter numbering (`1..N`), and volume-scoped Table of Contents without mutating underlying idea content folders.
 
 ### 2.4. Blog & Social Publishing (`services/publishing/`)
 - **Author & Blogger Persona (`REQ-BLG-001`)**: Implements the AS author persona (`context/persona/author.md`)—punch over preamble, plain language with physical metaphors ("digital rust", "sweating assets"), bold lead-in takeaways, "So What?" economic equation analysis, and a 400–800 word target length.
@@ -107,6 +108,8 @@ uv run ideas enrich --idea 1 --regenerate-image         # Re-generate image pres
 uv run ideas draft --idea 1                             # Draft book chapter manuscript (author persona)
 uv run ideas typeset --idea 1                           # Compile single chapter PDF via Typst
 uv run ideas typeset --all                              # Compile aggregated book volume with TOC
+uv run ideas typeset --volume volume-1                  # Compile specific volume from config/volumes.yaml
+uv run ideas typeset --all-volumes                      # Compile all configured volumes
 
 # Blog & Social Publishing
 uv run ideas blog --idea 1                              # Draft Hostinger blog post (blogger persona)
