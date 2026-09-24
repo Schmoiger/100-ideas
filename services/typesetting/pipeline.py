@@ -20,6 +20,7 @@ def process_book_chapter(
     do_draft: bool = True,
     do_compile: bool = True,
     force: bool = False,
+    chapter_num: int | None = None,
 ) -> dict[str, Any]:
     """Execute end-to-end book drafting and typesetting for an idea.
 
@@ -45,6 +46,7 @@ def process_book_chapter(
             idea=idea,
             ideas_root=ideas_root,
             force=force,
+            chapter_num=chapter_num,
         )
         results["chapter_md"] = str(chapter_md)
         results["draft_generated"] = draft_gen

@@ -23,9 +23,10 @@ def build_chapter_draft(
     research_content: str,
     metaphor: str,
     illustration_rel_path: str = "../assets/illustration.png",
+    chapter_num: int | None = None,
 ) -> ChapterDraft:
     """Compose substantive chapter manuscript adhering to author persona."""
-    num: int = _extract_number(idea.id)
+    num: int = chapter_num if chapter_num is not None else _extract_number(idea.id)
 
     # 1. Lead Punch: No throat-clearing, arresting opening
     lead_punch: str = (
@@ -101,6 +102,7 @@ def draft_book_chapter(
     idea: IdeaRecord,
     ideas_root: Path,
     force: bool = False,
+    chapter_num: int | None = None,
 ) -> tuple[Path, bool]:
     """Generate book chapter manuscript and write to artefacts/content/ideas/{id}/book/chapter.md.
 
@@ -139,6 +141,7 @@ def draft_book_chapter(
         research_content=research_content,
         metaphor=metaphor,
         illustration_rel_path=illustration_rel,
+        chapter_num=chapter_num,
     )
 
     # Atomic write of chapter.md
