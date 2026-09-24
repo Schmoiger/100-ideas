@@ -30,8 +30,8 @@
 | TASK-011 | high | completed | - | Implement Blog Mode drafting (author persona), Hostinger frontmatter, and LinkedIn exports |
 | TASK-012 | medium | completed | TASK-008 | Verify Markdown portability export bundling and GFM compatibility |
 | TASK-013 | high | completed | - | Implement batch processing and pipeline runner in CLI (REQ-ORC-001 - REQ-ORC-005) |
-| TASK-014 | high | in-progress | - | Verify and validate all Non-Functional Requirements (NFR-TOK, NFR-QLT, NFR-EXT) |
-| TASK-015 | critical | pending | TASK-014 | Solution Architect Review: Continuous Ingestion, Human-in-the-Loop, and Multi-Volume Architecture |
+| TASK-014 | high | completed | - | Verify and validate all Non-Functional Requirements (NFR-TOK, NFR-QLT, NFR-EXT) |
+| TASK-015 | critical | completed | TASK-014 | Solution Architect Review: Continuous Ingestion, Human-in-the-Loop, and Multi-Volume Architecture |
 | TASK-016 | high | pending | TASK-015 | Refactor continuous ingestion lifecycle, inbox archiving, and decouple idea ID from chapter numbers |
 | TASK-017 | high | pending | TASK-015 | Implement multi-volume book mapping configuration (`config/volumes.yaml`) and compilation |
 | TASK-018 | high | pending | TASK-015 | Implement state machine and manual edit protection safeguards (`human_modified`) in `meta.yaml` |
@@ -110,7 +110,7 @@
   - Idempotent CLI integration via `ideas blog` and `ideas social`.
 
 ### TASK-015: Solution Architect Review: Continuous Ingestion, Human-in-the-Loop, and Multi-Volume Architecture
-- **Status**: Pending
+- **Status**: Completed
 - **Assignee**: `@solution-architect`
 - **Description**: Conduct comprehensive architectural review to address false assumptions: redesign ingestion for irregular inbox intake, define human-in-the-loop revision model, establish multi-volume publishing schema, and design live Gemini SDK integration with token governance.
 - **Acceptance Criteria**:

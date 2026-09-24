@@ -1,10 +1,10 @@
-# Handoff: Blog & Social Publishing Subsystem Prototype (§3.5)
+# Handoff: Continuous Publishing Architecture Review (§3.1 - §3.7)
 
-**From**: @orchestrator
-**To**: @solution-architect
+**From**: @solution-architect
+**To**: @python-coder
 **Date**: 24/09/2026
-**Workflow**: prototype
-**Phase**: ready
+**Workflow**: build
+**Phase**: architecture-review
 **Status**: ready
 
 ---
@@ -13,13 +13,14 @@
 
 | Agent | Scope | Role |
 |-------|-------|------|
-| @orchestrator | `artefacts/` | Workflow coordinator, sign-off and git merge readiness |
+| @solution-architect | `artefacts/architecture/` | Architecture review, data model, volume mapping specification |
+| @python-coder | `services/` | Subsystem implementation and refactoring |
 
 ---
 
 ## Summary
 
-Completed prototype workflow for the Blog & Social Publishing Subsystem (§3.5 of `artefacts/product/requirements.md`). All requirements (REQ-BLG-001 through REQ-BLG-004) verified with passing smoke tests: opinionated blogger persona (Dr Sarah Chen), Hostinger-ready YAML frontmatter blog posts (`blog/post.md`), companion LinkedIn social posts (`blog/linkedin.md`, < 3000 chars), CMS publication adapters (`config/publishing.yaml`), and CLI pipeline integration (`ideas blog`, `ideas social`).
+Completed comprehensive Solution Architect Review (TASK-015) addressing the two fundamental assumptions (static 100-idea catalog and one-shot linear drafting). Delivered formal review report (`artefacts/architecture/review-continuous-publishing.md`), updated system architecture (`artefacts/architecture/architecture.md`), and updated conceptual data model (`artefacts/architecture/data-model.md`). Defined continuous intake lifecycle with `inbox-archive.md`, decoupled canonical ID scheme, multi-volume configuration (`config/volumes.yaml`), human-in-the-loop state machine in `meta.yaml` with manual edit safeguards (`human_modified: true`), live Gemini SDK (`google-genai`) integration with context caching, and Single Source of Truth (SSOT) channel syndication.
 
 ---
 
@@ -27,13 +28,8 @@ Completed prototype workflow for the Blog & Social Publishing Subsystem (§3.5 o
 
 | ID | Task | Status | Notes |
 |----|------|--------|-------|
-| TASK-ING-PROTO | Complete Idea Ingestion Subsystem prototype | complete | Merged in PR #2 |
-| TASK-ENR-PROTO | Complete Content Enrichment Subsystem prototype | complete | Merged in PR #3 |
-| TASK-BOK-PROTO | Complete Book Mode & Typst Typesetting Subsystem prototype | complete | Merged in PR #4 |
-| REQ-BLG-SPECS | Define Blog & Social Publishing requirements (§3.5) | complete | requirements.md L84 |
-| TASK-011 | Implement Blog Mode drafting, Hostinger frontmatter, LinkedIn exports, and CMS adapters | complete | services/publishing/ |
-| TASK-BLG-CLI | Wire `ideas blog` and `ideas social` into CLI dispatcher | complete | services/ingestion/cli.py |
-| TASK-BLG-VAL | Validate with smoke tests across persona, frontmatter, LinkedIn, and CMS adapters | complete | 5 passed in test_smoke.py |
+| TASK-014 | Verify and validate all Non-Functional Requirements | complete | All NFR tests passing |
+| TASK-015 | Solution Architect Review: Continuous Ingestion, Human-in-the-Loop, and Multi-Volume Architecture | complete | review-continuous-publishing.md delivered |
 
 ---
 
@@ -41,7 +37,10 @@ Completed prototype workflow for the Blog & Social Publishing Subsystem (§3.5 o
 
 | ID | Task | Priority | Depends On |
 |----|------|----------|------------|
-| TASK-012 | Implement Markdown portability export bundling | medium | TASK-011 |
+| TASK-016 | Refactor continuous ingestion lifecycle, inbox archiving, and decouple idea ID from chapter numbers | high | TASK-015 |
+| TASK-017 | Implement multi-volume book mapping configuration (`config/volumes.yaml`) and compilation | high | TASK-015 |
+| TASK-018 | Implement state machine and manual edit protection safeguards (`human_modified`) in `meta.yaml` | high | TASK-015 |
+| TASK-020 | Implement live Gemini Python SDK (`google-genai`) integration with prompt caching and token governance | high | TASK-015 |
 
 ---
 
