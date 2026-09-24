@@ -1,5 +1,7 @@
 # Document Automation Scripts
 
+---
+
 ## Overview
 
 Automates conversion of Markdown drafts to professional PDFs with rendered mermaid diagrams using **Typst** (modern typesetting system).
@@ -14,6 +16,8 @@ Automates conversion of Markdown drafts to professional PDFs with rendered merma
 - You refine with Nano Banana → save to `docs/diagrams/`
 - Step 3 uses your manual images (if present), baselines otherwise
 
+---
+
 ## Quick Start
 
 ```bash
@@ -26,6 +30,8 @@ make pdf
 
 That's it! Your PDFs will be in `build/pdf/`.
 
+---
+
 ## Individual Steps
 
 ```bash
@@ -34,6 +40,8 @@ make render        # Render .mmd to PNG via mermaid.ink (incremental)
 make pdf           # Generate PDFs with Typst
 make clean         # Remove build directory
 ```
+
+---
 
 ## Build Specific Documents
 
@@ -50,6 +58,8 @@ make clean         # Remove build directory
 # Build all documents
 make pdf
 ```
+
+---
 
 ## Manual Refinement Workflow
 
@@ -102,6 +112,8 @@ The build script checks directories in order:
 
 No manual tracking needed!
 
+---
+
 ## Incremental Builds
 
 ### You edited text in vision.md (no diagram changes)
@@ -137,6 +149,8 @@ rm build/diagrams/vision/New\ DevX\ Workflow.png
 make clean && make pdf
 ```
 
+---
+
 ## Wrapper Script
 
 For easier commands, use `./typst/scripts/build-docs.sh`:
@@ -157,6 +171,8 @@ For easier commands, use `./typst/scripts/build-docs.sh`:
 # Help
 ./typst/scripts/build-docs.sh --help
 ```
+
+---
 
 ## Adding/Removing Documents
 
@@ -193,6 +209,8 @@ For easier commands, use `./typst/scripts/build-docs.sh`:
    rm -rf build/typst/new-org-plandek*
    rm build/pdf/new-org-plandek.pdf
    ```
+
+---
 
 ## File Structure
 
@@ -239,6 +257,8 @@ typst/
     └── plandek.typ       # Plandek theme (logos, CETZ cover panel, QR)
 ```
 
+---
+
 ## Scripts
 
 - **`typst/scripts/extract-mermaid.py`** - Extract mermaid blocks from Markdown
@@ -257,6 +277,8 @@ typst/
   - Per-document builds use **`make pdf-doc DOC=<id>`** (ids from `build.yaml`, not raw filenames).
   - Optional **`--brand plandek`** (or **`BRAND=`** in the environment) is forwarded like the Makefile.
 
+---
+
 ## Dependencies
 
 All dependencies installed per project setup:
@@ -271,6 +293,8 @@ All dependencies installed per project setup:
 - ~~mermaid-cli (307MB node_modules)~~ → Replaced by mermaid.ink web service
 - **Disk savings: 1,643MB → 313MB (81% reduction)**
 
+---
+
 ## Performance
 
 - **Extraction**: ~1-2 seconds (all files)
@@ -279,6 +303,8 @@ All dependencies installed per project setup:
 - **Total first build**: ~60 seconds
 - **Incremental (one file changed)**: ~5 seconds
 - **Speed improvement: 5x faster than LaTeX**
+
+---
 
 ## PDF branding (Typst)
 
@@ -304,6 +330,8 @@ Optional **`local.mk`** (see **`local.mk.example`**, gitignored): set `BRAND = p
 **Registry:** `build.yaml` keys under **`brands:`** map id → Typst `module` path. Rare edits only when adding a new pack. Optional per-document / per-book **`brand:`** pins override `--brand` (for CI or fixed deliverables).
 
 **Shim:** `typst/plandek-template.typ` re-exports the Plandek pack so older notes and paths keep working.
+
+---
 
 ## Troubleshooting
 
@@ -389,6 +417,8 @@ Common issues:
   - Fixed by sed in build script (commented out)
 - **Image paths**: Wrong relative paths to images
   - Fixed by sed in build script
+
+---
 
 ## Examples
 
@@ -488,6 +518,8 @@ Cleaning build directory...
 ✓ All PDFs built successfully in build/pdf/
 ```
 
+---
+
 ## Test Document
 
 The `typeset-test.md` document tests all typographic elements:
@@ -516,6 +548,8 @@ Build it first when making template changes to avoid re-rendering large document
 make pdf-doc DOC=typeset-test
 open build/pdf/typeset-test-neutral.pdf
 ```
+
+---
 
 ## See Also
 
