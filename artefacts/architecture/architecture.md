@@ -249,11 +249,14 @@ flowchart TD
 ## 6. Interactive Revision Loop & Agentic Chat Protocol
 
 1. **Human-in-the-Loop Collaboration**:
-   - The CLI handles automated, headless batch execution and compilation.
+   - The CLI handles automated, headless batch execution and compilation (`ideas pipeline`, `ideas typeset`).
    - The agentic chat interface handles iterative authoring, qualitative critique, and section-by-section refinement.
-2. **Selective Patching**:
-   - Conversational critique (e.g. "expand on the economic equation in Chapter 3") triggers focused section edits rather than full document regeneration.
-   - Edits update `meta.yaml` to flag `human_modified: true` and trigger Typst single-chapter compilation for immediate visual preview.
+2. **Selective Patching & Revision Engine**:
+   - Conversational critique triggers targeted section edits via `services.typesetting.revision` without full document rewriting.
+   - CLI command `ideas revise --idea <id> --section <section> --content <text>` applies surgical updates, tracks audit history in `meta.yaml` (`revisions`), and optionally triggers `--syndicate` and `--typeset`.
+   - Edits update `meta.yaml` to flag `human_modified: true`, `review_status: needs_revision`, and `stage: human_review`.
+3. **Formal Protocol Specification**:
+   - See [chat-revision-protocol.md](chat-revision-protocol.md) for sequence diagrams, canonical section mappings, and interaction guidelines.
 
 ---
 
@@ -262,6 +265,7 @@ flowchart TD
 - **Product Requirements**: [requirements.md](product/requirements.md)
 - **Conceptual Data Model**: [data-model.md](data-model.md)
 - **Architecture Review Report**: [review-continuous-publishing.md](review-continuous-publishing.md)
+- **Interactive Chat Revision Protocol**: [chat-revision-protocol.md](chat-revision-protocol.md)
 - **Volume Mapping Configuration**: `config/volumes.yaml`
 - **Author & Blogger Persona**: [context/persona/author.md](../../context/persona/author.md)
 - **Typst Typesetting Subrepo**: [typst/README.md](../../typst/README.md)

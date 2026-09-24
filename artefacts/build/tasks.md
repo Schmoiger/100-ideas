@@ -35,7 +35,7 @@
 | TASK-016 | high | completed | TASK-015 | Refactor continuous ingestion lifecycle, inbox archiving, and decouple idea ID from chapter numbers |
 | TASK-017 | high | completed | TASK-015 | Implement multi-volume book mapping configuration (`config/volumes.yaml`) and compilation |
 | TASK-018 | high | completed | TASK-015 | Implement state machine and manual edit protection safeguards (`human_modified`) in `meta.yaml` |
-| TASK-019 | medium | pending | TASK-018 | Implement interactive agentic chat revision loop and hierarchical channel syndication (SSOT) |
+| TASK-019 | medium | completed | TASK-018 | Implement interactive agentic chat revision loop and hierarchical channel syndication (SSOT) |
 | TASK-020 | high | pending | TASK-015 | Implement live Gemini Python SDK integration, prompt caching, and `gemini-sdk` skill |
 
 ---
@@ -149,13 +149,13 @@
   - Asset path resolver handles both relative figure paths for Typst compilation and web-ready image paths for CMS publishing.
 
 ### TASK-019: Interactive Agentic Chat Revision Loop & Channel Syndication
-- **Status**: Pending
+- **Status**: Completed
 - **Architecture Reference**: [review-continuous-publishing.md §7 & §8](file:///Users/avi/Repos/100-ideas/artefacts/architecture/review-continuous-publishing.md#7-single-source-of-truth-ssot-syndication-model) (Resolves DEF-006)
 - **Description**: Implement interactive agent revision interface allowing conversational refinement of drafted text, selective prompt adjustment, and section-by-section regeneration. Refactor Blog Mode and Social Mode to syndicate from the approved master chapter manuscript (Single Source of Truth) rather than diverging from the raw synopsis.
 - **Acceptance Criteria**:
-  - Agentic chat interaction protocol defined for iterative review and revision.
-  - Blog post and LinkedIn post generators can consume approved `book/chapter.md` to extract core arguments and ensure channel alignment.
-  - Refinement commands support targeted section updates without rewriting entire documents.
+  - Agentic chat interaction protocol defined for iterative review and revision (`artefacts/architecture/chat-revision-protocol.md`).
+  - Blog post and LinkedIn post generators consume approved `book/chapter.md` to extract core arguments, empirical observations, and takeaways, ensuring channel alignment.
+  - Refinement commands (`ideas revise`) support targeted section updates without rewriting entire documents, with automated metadata audit logging (`revisions`), `--syndicate`, and `--typeset` flags.
 
 ### TASK-020: Live Gemini Python SDK Integration, Token Guard Rails & `gemini-sdk` Skill
 - **Status**: Pending

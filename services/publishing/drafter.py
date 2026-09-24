@@ -149,8 +149,18 @@ def draft_blog_post(
         f"costly cognitive friction in your day-to-day development workflow."
     )
 
-    # Synthesise body
-    body_markdown = generate_author_blog_body(idea)
+    # Check for Single Source of Truth: master chapter manuscript
+    chapter_file = idea_dir / "book" / "chapter.md"
+    syndicated_from: str | None = None
+    if chapter_file.is_file():
+        from services.publishing.syndication import generate_syndicated_blog_body
+
+        body_markdown = generate_syndicated_blog_body(idea, chapter_file)
+        syndicated_from = "book/chapter.md"
+    else:
+        # Synthesise body from raw synopsis
+        body_markdown = generate_author_blog_body(idea)
+
     words = count_words(body_markdown)
     reading_time = max(1, round(words / 200))
 
@@ -188,6 +198,9 @@ def draft_blog_post(
     meta_dict["blog_post"] = "blog/post.md"
     meta_dict["blog_slug"] = slug
     meta_dict["blog_words"] = words
+    if syndicated_from:
+        meta_dict["syndicated_from"] = syndicated_from
+        meta_dict["syndicated_at"] = datetime.now(timezone.utc).isoformat()
     meta_file.write_text(yaml.dump(meta_dict, sort_keys=False), encoding="utf-8")
 
     return post_file, True
