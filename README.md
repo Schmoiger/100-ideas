@@ -1,210 +1,179 @@
-# 100 Ideas
+# 100 Ideas: Autonomous Publishing Pipeline
 
-Agentic app to automate 100 Ideas book and subsequent blog posts
-
----
-
-## Quick Deployment
-
-### 1. One-Step Initialisation & Refresh (`init.sh`)
-
-When seeding a new project from `start-here` or freshening the current repository:
-
-```bash
-./init.sh
-```
-
-`init.sh` interactively:
-- Prompts for project metadata (`pyproject.toml` name/description)
-- Configures target AI coding runtimes (Gemini/Antigravity, Claude Code, GitHub Copilot, OpenAI/Codex) and prunes unselected projections
-- Syncs or clones standard subrepositories (`context/`, and optionally `typst/` for PDF typesetting)
-- Regenerates adapter projections and updates lockfiles (`uv.lock`)
-- Sets up `.pre-commit-config.yaml` and activates git hooks
-
-You can also run non-interactively with CLI flags:
-
-```bash
-# Non-interactive with all defaults
-./init.sh -y
-
-# Configure specific runtimes with Typst
-./init.sh -r claude,gemini -t -y
-
-# View all options
-./init.sh -h
-```
-
-### 2. Manual Setup (Alternative)
-
-If you prefer manual file copying instead of using `init.sh`:
-
-```bash
-# Copy context directory and orchestration guide
-cp -r context/ /path/to/your-project/context/
-cp CLAUDE.md /path/to/your-project/CLAUDE.md
-cp AGENTS.md /path/to/your-project/AGENTS.md
-```
-
-### 2. Configure MCP (Optional)
-
-```bash
-# Claude Code CLI
-cp context/mcp/mcp.json ~/.claude/mcp.json
-
-# Claude Desktop
-# macOS: ~/Library/Application Support/Claude/claude_desktop_config.json
-# Windows: %APPDATA%\Claude\claude_desktop_config.json
-# Linux: ~/.config/Claude/claude_desktop_config.json
-
-# Cursor IDE
-cp context/mcp/mcp.json /path/to/your-project/.mcp.json
-```
-
-### 3. Generate Runtime Adapters
-
-```bash
-cd /path/to/your-project
-# Smart update all projections (Gemini, Claude Code, Copilot, Codex)
-uv run python context/scripts/generators/generate_adapters.py
-
-# Or generate for a specific runtime
-uv run python context/scripts/generators/generate_adapters.py -t claude
-uv run python context/scripts/generators/generate_adapters.py -g          # Gemini / Antigravity
-uv run python context/scripts/generators/generate_adapters.py -p          # GitHub Copilot
-uv run python context/scripts/generators/generate_adapters.py -o          # OpenAI / Codex
-```
-
-### 4. Create Artefacts Structure
-
-```bash
-mkdir -p artefacts/{product,architecture,design,build,test-results,shared}
-mkdir -p artefacts/shared/{handoffs,fixtures,mocks}
-```
+An agentic content publishing framework designed to ingest, enrich, typeset, and publish 100 strategic technology ideas into a publication-grade, typeset book volume (using Typst) and Hostinger-ready, SEO-optimised blog articles with companion social channel assets.
 
 ---
 
-## Runtime Adapters & Architecture
+## 1. System Overview & Architecture
 
-This framework employs a **Hexagonal (Ports and Adapters)** architecture to ensure cross-platform portability across AI coding runtimes.
-
-```
-                  ┌─────────────────────────────────────┐
-                  │    Canonical Context (Source of Truth) │
-                  │  • context/agents/*.md               │
-                  │  • context/workflows/*.yaml          │
-                  │  • context/rules/*.mdc               │
-                  │  • context/standards/*.md            │
-                  │  • context/models.yaml               │
-                  └──────────────────┬──────────────────┘
-                                     │
-                        generate_adapters.py (CLI)
-                                     │
-      ┌───────────────┬──────────────┴──────────────┬───────────────┐
-      ▼               ▼                             ▼               ▼
-┌───────────┐   ┌───────────┐                 ┌───────────┐   ┌───────────┐
-│ Antigravity│  │Claude Code│                 │  GitHub   │   │  OpenAI   │
-│  / Gemini │   │           │                 │  Copilot  │   │  / Codex  │
-├───────────┤   ├───────────┤                 ├───────────┤   ├───────────┤
-│.agents/   │   │CLAUDE.md  │                 │.github/   │   │.openai/   │
-│skills/    │   │.claude/   │                 │prompts/   │   │prompts/   │
-│GEMINI.md  │   │prompts/   │                 │instructions/ │   │tools.json │
-└───────────┘   └───────────┘                 └───────────┘   └───────────┘
-```
-
-### Core Non-Functional Requirements (NFRs)
-
-1. **Autonomy**: Each projection provides self-contained context and tool contracts tailored to the target platform, enabling autonomous agent loops and subagent spawning without human intervention.
-2. **Token Efficiency**: Scoped projection instructions and selective includes ensure agent context windows are never polluted with irrelevant guidelines. Model tiers (`small`, `medium`, `large`) route tasks to cost-effective models via `models.yaml`. Smart generation (`--new`) only writes modified files, preventing file-watcher and cache churn.
-3. **Intent Preservation**: The canonical definition in `context/` acts as the single source of truth. Projections are deterministic transformations ensuring consistent engineering standards across all AI tools.
-
-### CLI Usage (`generate_adapters.py`)
-
-```bash
-# Smart update: write only changed or new files (default)
-uv run python context/scripts/generators/generate_adapters.py
-
-# Force full regeneration of all files
-uv run python context/scripts/generators/generate_adapters.py -a
-
-# Dry-run: preview files that would be modified without writing to disk
-uv run python context/scripts/generators/generate_adapters.py -d
-
-# Target filtering with convenience shortcuts
-uv run python context/scripts/generators/generate_adapters.py -g          # Gemini / Antigravity
-uv run python context/scripts/generators/generate_adapters.py -c          # Claude Code
-uv run python context/scripts/generators/generate_adapters.py -p          # GitHub Copilot
-uv run python context/scripts/generators/generate_adapters.py -o          # OpenAI / Codex
-```
-
-### Automated Drift Enforcement (`adapter_drift.py`)
-
-To prevent divergence between canonical context files and generated adapter projections, an automated drift validator runs during pre-commit checks:
-
-```bash
-uv run python context/scripts/validators/adapter_drift.py
-```
-
-If any generated projection is missing, manually edited, or out of date, the validator fails with exit code `1` and actionable remediation instructions.
-
----
-
-## Framework Distribution & Downstream Integration
-
-The framework distributes canonical context from the dedicated [`agents-framework`](https://github.com/Schmoiger/agents-framework) repository (`main` branch) as an isolated, self-contained directory (`context/`). Downstream repositories (including `start-here`) import standards, workflows, and agents without inheriting project-specific state (`artefacts/build/`, `artefacts/product/`, or application code).
-
-Bi-directional synchronisation is managed via `git-subrepo`:
+The 100 Ideas system transforms raw conceptual notes into production-ready publication assets across two primary output streams: **Book Mode** (formal, typeset publication) and **Blog Mode** (opinionated web and social distribution).
 
 ```mermaid
-graph LR
-    subgraph Upstream ["agents-framework (main)"]
-        UContext["context/ (Canonical Source)"]
+graph TD
+    subgraph Ingestion ["1. Idea Ingestion & Selection"]
+        Cat["Catalogue Table (100-ideas.md)"] --> Sync["Catalog Snapshot"]
+        Inbox["Inbox Submissions (inbox.md)"] --> Dedup["Duplicate Checker"]
+        Sync --> Prov["Idea Provisioner"]
+        Dedup --> Prov
+        Prov --> IdeaDir["artefacts/content/ideas/{id}/"]
     end
 
-    subgraph Downstream ["start-here / Downstream Repos"]
-        DContext["context/ (Subrepo)"]
-        DBuild["artefacts/build/ (Local Only)"]
-        DCode["src / services / (Local Only)"]
+    subgraph Enrichment ["2. Content Enrichment & Visuals"]
+        Res["Shared Resources (resources/)"] --> Synth["Research Synthesis"]
+        IdeaDir --> Synth
+        Synth --> Notes["research/notes.md"]
+        Synth --> Prompt["Visual Prompt Derivation"]
+        Prompt --> AssetGen["Editorial Image Generator"]
+        AssetGen --> Img["assets/illustration.png"]
     end
 
-    UContext <== "git subrepo pull / push" ==> DContext
+    subgraph Book ["3. Book Mode & Typst Typesetting"]
+        IdeaDir --> Drafter["Amara Osei Author Drafter"]
+        Notes --> Drafter
+        Drafter --> ChapMD["book/chapter.md"]
+        ChapMD --> Trans["Typst Translator"]
+        Trans --> ChapTYP["book/chapter.typ"]
+        ChapTYP --> TypstCLI["Typst Compilation Engine"]
+        Img --> TypstCLI
+        TypstCLI --> ChapPDF["book/chapter.pdf"]
+        TypstCLI --> VolPDF["book/100-ideas-book.pdf (Aggregated)"]
+    end
+
+    subgraph Publishing ["4. Blog & Social Publishing"]
+        IdeaDir --> BlogDraft["AS Author Persona Drafter"]
+        Notes --> BlogDraft
+        BlogDraft --> PostMD["blog/post.md (Hostinger YAML)"]
+        PostMD --> SocialGen["LinkedIn Social Generator"]
+        SocialGen --> LinkedInMD["blog/linkedin.md (< 3,000 chars)"]
+        PostMD --> CMSAdapters["CMS Adapters (config/publishing.yaml)"]
+        CMSAdapters --> WP["WordPress REST API"]
+        CMSAdapters --> Ghost["Ghost Admin API"]
+        CMSAdapters --> Static["Astro / Hugo Markdown"]
+    end
 ```
 
 
-### Quick Commands for Downstream Projects
+---
+
+## 2. Core Subsystems
+
+### 2.1. Idea Ingestion & Selection (`services/ingestion/`)
+- **Dual-Path Ingestion (`REQ-ING-001`)**: Ingests batch catalog entries from `artefacts/product/100-ideas.md` and incremental submissions from `artefacts/product/inbox.md`.
+- **Deduplication Engine (`REQ-ING-002`)**: Normalises titles and checks semantic word overlap before provisioning.
+- **Resilient Synchronisation (`REQ-ING-003`)**: Automatically falls back to `100-ideas.snapshot.md` when external symlinks are unresolvable in sandboxed environments.
+- **Canonical Provisioning (`REQ-ING-004`)**: Creates deterministic folder structures with `meta.yaml` under `artefacts/content/ideas/{idea-id}/`.
+
+### 2.2. Content Enrichment & Visuals (`services/enrichment/`)
+- **M:N Shared Resource Library (`REQ-ENR-001`)**: Connects ideas to reusable foundational documents in `artefacts/content/resources/`.
+- **Thematic Research Synthesis (`REQ-ENR-002`)**: Generates structured dossiers in `research/notes.md` detailing problem context, industry landscape, and architectural implications.
+- **Metaphorical Prompt Derivation (`REQ-ENR-003`)**: Synthesises editorial image prompts avoiding clichéd AI tropes.
+- **Pure-Python Image Generation (`REQ-ENR-004`)**: Produces valid, high-resolution PNG binaries (`assets/illustration.png`) without external C-library graphics dependencies.
+
+### 2.3. Book Mode & Typst Typesetting (`services/typesetting/`)
+- **Author Persona Drafter (`REQ-BOK-001`, `REQ-BOK-002`)**: Implements the Amara Osei persona (`context/persona/author.md`)—prioritising information density, economic reality, bold takeaway lead-ins, and hype puncturing.
+- **Typst Translator (`REQ-BOK-003`)**: Converts semantic Markdown into clean Typst markup (`chapter.typ`), embedding callouts and vector-scaled figures.
+- **Publication-Grade PDF Compilation (`REQ-BOK-004`, `REQ-BOK-005`)**: Uses the subrepo Typst design system (`typst/brands/neutral.typ`) to compile single chapters and unified multi-chapter volumes with Table of Contents.
+
+### 2.4. Blog & Social Publishing (`services/publishing/`)
+- **Author & Blogger Persona (`REQ-BLG-001`)**: Implements the AS author persona (`context/persona/author.md`)—punch over preamble, plain language with physical metaphors ("digital rust", "sweating assets"), bold lead-in takeaways, "So What?" economic equation analysis, and a 400–800 word target length.
+- **Hostinger-Ready Standardised YAML Frontmatter (`REQ-BLG-002`)**: Formats blog articles in `blog/post.md` with standardised frontmatter (`title`, `slug`, `date`, `excerpt`, `tags`, `cover_image`, `author`).
+- **Companion LinkedIn Channel Posts (`REQ-BLG-003`)**: Generates high-converting LinkedIn posts in `blog/linkedin.md` with punchy hooks, 3–5 bullet takeaways, CTA, hashtags, and < 3,000 characters.
+- **Extensible CMS Publication Adapters (`REQ-BLG-004`)**: Configured via `config/publishing.yaml` to export posts to Hostinger Static (Astro/Hugo), WordPress REST API, or Ghost Admin API.
+
+---
+
+## 3. CLI Command Reference (`ideas`)
+
+The project exposes a unified CLI dispatcher `ideas` via Python entrypoints:
 
 ```bash
-# 1. Adopt standards into a new or existing repository
-PATH="/opt/homebrew/bin:/usr/local/bin:$PATH" git subrepo clone https://github.com/Schmoiger/agents-framework.git context -b main
+# Ingestion & Synchronisation
+uv run ideas sync                                       # Synchronise catalog to snapshot
+uv run ideas catalog --all --provision                  # Parse and provision all catalog ideas
+uv run ideas inbox --process                            # Process pending ideas in inbox.md
+uv run ideas add "Title" "Synopsis" --category "DevX"   # Add new idea to inbox
 
-# 2. Re-compile runtime adapter projections after pulling upstream updates
-PATH="/opt/homebrew/bin:/usr/local/bin:$PATH" git subrepo pull context
-uv run python context/scripts/generators/generate_adapters.py
+# Content Enrichment
+uv run ideas enrich --idea 1                            # Run research synthesis and visual generation
+uv run ideas enrich --idea idea-001 --force             # Force re-generation of research and assets
+uv run ideas enrich --idea 1 --regenerate-image         # Re-generate image preserving research
 
-# 3. Push local standards improvements back upstream
-uv run python context/scripts/validators/adapter_drift.py
-PATH="/opt/homebrew/bin:/usr/local/bin:$PATH" git subrepo push context
+# Book Mode & Typst Compilation
+uv run ideas draft --idea 1                             # Draft book chapter manuscript (author persona)
+uv run ideas typeset --idea 1                           # Compile single chapter PDF via Typst
+uv run ideas typeset --all                              # Compile aggregated book volume with TOC
+
+# Blog & Social Publishing
+uv run ideas blog --idea 1                              # Draft Hostinger blog post (blogger persona)
+uv run ideas blog --idea 1 --platform hostinger_static  # Export using specific CMS adapter
+uv run ideas blog --all                                 # Generate blog posts for all ideas
+uv run ideas social --idea 1                            # Generate companion LinkedIn social post
 ```
 
-For complete setup instructions and pre-commit hook configuration, see [`context/README.md`](context/README.md#downstream-integration--standards-synchronisation-git-subrepo).
+---
+
+## 4. Operational Guide for AI Agents
+
+When executing automated tasks or subagent delegations within this repository, adhere to the following directory responsibilities and invariants:
+
+### 4.1. Directory Responsibilities
+
+| Path | Owner / Scope | Agent Instructions |
+|------|---------------|-------------------|
+| `context/` | Canonical Subrepo | **Read-only** during development. Contains shared agent definitions, workflows, personas, and rules managed via `git-subrepo`. Never edit manually. |
+| `artefacts/product/` | Requirements & Product | Houses `requirements.md`, `100-ideas.md`, `100-ideas.snapshot.md`, and `inbox.md`. |
+| `artefacts/architecture/` | System Architecture | Houses `architecture.md`, `data-model.md`, and `agent-app-architecture-comparison.md`. |
+| `artefacts/content/ideas/{id}/` | Idea Workspace | Contains all assets for idea `{id}`: `meta.yaml`, `research/`, `assets/`, `book/`, `blog/`. |
+| `artefacts/content/resources/` | Shared Library | Houses M:N reusable reference documents (`new-devx-vision.md`, etc.). |
+| `artefacts/content/book/` | Publication Builds | Compiled aggregated book PDFs and Typst sources. |
+| `artefacts/build/` | Active Coordination | `HANDOFF.md` tracks active phase state; `tasks.md` tracks task IDs and acceptance criteria. |
+| `services/` | Application Code | Production Python services (`ingestion`, `enrichment`, `typesetting`, `publishing`). |
+| `config/` | Configuration | Deployment and CMS publication settings (`publishing.yaml`). |
+
+### 4.2. Invariants & Guardrails
+- **Idempotency**: All pipeline stages skip re-generation if target outputs exist unless `--force` is passed. Always check file presence before spending LLM tokens.
+- **Persona Fidelity**: Consult `context/persona/author.md` for both Book Mode chapters and Blog Mode articles.
+- **British English Spelling**: All documentation, requirements, and markdown artefacts must strictly use British English spelling (e.g. *synchronised*, *prioritise*, *catalogue*, *modelling*).
+- **Typst-Friendly Formatting**: All Markdown files must precede level-2 headings (`## `) with horizontal rules (`---`) and follow diagram fences with at least two blank lines.
+- **Clean Commits**: Commit messages must follow the conventional commit format with subject lines under 72 characters.
 
 ---
 
-## Documentation
+## 5. Testing & Verification
 
-- **Getting started**: See `context/README.md` - Complete guide for agents and humans
-- **Workflow guide**: See `AGENTS.md` / `CLAUDE.md` - Auto-generated orchestration guides
-- **Agent reference**: See `context/agents/` - Individual agent definitions
-- **Standards**: See `context/standards/` - Coding, testing, tech stack guidance
-- **Workflows**: See `context/workflows/` - Structured delivery pipelines (TDD, design, prototype, content, deploy, bugfix)
-- **Validators**: See `context/scripts/validators/README.md` - Pre-commit consistency validators
+The test suite validates pipeline idempotency, persona compliance, frontmatter schemas, social character limits, and Typst compilation:
+
+```bash
+# Run all automated tests
+uv run pytest
+
+# Run specific service test suites
+uv run pytest services/ingestion/tests/
+uv run pytest services/enrichment/tests/
+uv run pytest services/typesetting/tests/
+uv run pytest services/publishing/tests/
+
+# Execute pre-commit validation checks
+uv run pre-commit run --all-files
+
+# Verify runtime adapter synchronisation
+uv run agent-drift
+```
 
 ---
 
-## What's Included
+## 6. Upstream Standards Synchronisation
 
-- **19 specialised agents** - Discovery, architecture, coding, review, testing, deployment, workflow analysis, tokenomics
-- **14 standards** - Coding, testing, architecture, tech stack, documentation, security
-- **18 rules** - Enforceable constraints with automated validators
-- **9 workflows** - Including build (Detroit TDD), design, prototype, content, deploy, bugfix, full-test, continuous-improvement, retrospective
-- **4 runtime adapters** - Antigravity/Gemini, Claude Code, GitHub Copilot, OpenAI/Codex
-- **1 unified generator CLI** - Deterministic compilation with smart change detection and drift prevention
+Canonical framework standards are maintained in the upstream `agents-framework` repository and imported via `git-subrepo`:
+
+```bash
+# Pull upstream updates from canonical framework
+git subrepo pull context
+
+# Recompile runtime adapter projections after pulling updates
+uv run agent-harness
+
+# Push local framework improvements back upstream
+uv run agent-drift
+git subrepo push context
+```

@@ -163,7 +163,7 @@ def export_for_platform(
             "excerpt": frontmatter.get("excerpt", ""),
             "tags": frontmatter.get("tags", []),
             "meta": {
-                "author": frontmatter.get("author", "Dr Sarah Chen"),
+                "author": frontmatter.get("author", "AS"),
                 "reading_time": frontmatter.get("reading_time_minutes", 3),
             },
         }
