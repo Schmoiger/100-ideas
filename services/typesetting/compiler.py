@@ -130,6 +130,7 @@ def compile_aggregated_book(
     book_title: str = "100 Ideas for Engineering Leaders",
     book_subtitle: str = "From Architecture to Autonomous Delivery",
     force: bool = False,
+    chapter_order: list[str] | None = None,
 ) -> tuple[Path, int]:
     """Compile aggregated multi-chapter book manuscript to PDF.
 
@@ -144,29 +145,54 @@ def compile_aggregated_book(
 
     # Find all idea directories with chapter.md or chapter-body.typ
     found_chapters: list[tuple[int, str, Path]] = []
-    for idea_dir in ideas_root.iterdir():
-        if not idea_dir.is_dir():
-            continue
-        book_dir = idea_dir / "book"
-        chapter_md = book_dir / "chapter.md"
-        chapter_body = book_dir / "chapter-body.typ"
-        standalone_typ = book_dir / "chapter.typ"
 
-        if chapter_md.is_file():
-            num = _extract_number(idea_dir.name)
-            # Ensure translation
-            if not chapter_body.is_file() or force:
-                translate_chapter_to_typst(
-                    chapter_md_path=chapter_md,
-                    output_body_path=chapter_body,
-                    output_standalone_path=standalone_typ,
-                    idea_id=idea_dir.name,
-                    title=idea_dir.name,
-                )
-            found_chapters.append((num, idea_dir.name, chapter_body))
+    if chapter_order:
+        for seq_idx, idea_id in enumerate(chapter_order, start=1):
+            idea_dir = ideas_root / idea_id
+            if not idea_dir.is_dir():
+                continue
+            book_dir = idea_dir / "book"
+            chapter_md = book_dir / "chapter.md"
+            chapter_body = book_dir / "chapter-body.typ"
+            standalone_typ = book_dir / "chapter.typ"
+            if chapter_md.is_file():
+                if not chapter_body.is_file() or force:
+                    translate_chapter_to_typst(
+                        chapter_md_path=chapter_md,
+                        output_body_path=chapter_body,
+                        output_standalone_path=standalone_typ,
+                        idea_id=idea_dir.name,
+                        title=idea_dir.name,
+                    )
+                found_chapters.append((seq_idx, idea_dir.name, chapter_body))
+    else:
+        candidates: list[tuple[int, str, Path]] = []
+        for idea_dir in ideas_root.iterdir():
+            if not idea_dir.is_dir():
+                continue
+            book_dir = idea_dir / "book"
+            chapter_md = book_dir / "chapter.md"
+            chapter_body = book_dir / "chapter-body.typ"
+            standalone_typ = book_dir / "chapter.typ"
 
-    # Sort chapters in ascending numerical order
-    found_chapters.sort(key=lambda x: x[0])
+            if chapter_md.is_file():
+                num = _extract_number(idea_dir.name)
+                # Ensure translation
+                if not chapter_body.is_file() or force:
+                    translate_chapter_to_typst(
+                        chapter_md_path=chapter_md,
+                        output_body_path=chapter_body,
+                        output_standalone_path=standalone_typ,
+                        idea_id=idea_dir.name,
+                        title=idea_dir.name,
+                    )
+                candidates.append((num, idea_dir.name, chapter_body))
+
+        # Sort chapters in ascending numerical order, then name
+        candidates.sort(key=lambda x: (x[0], x[1]))
+        found_chapters = [
+            (idx, name, path) for idx, (_, name, path) in enumerate(candidates, start=1)
+        ]
 
     if not found_chapters:
         raise ValueError(f"No processed book chapters found in {ideas_root}")

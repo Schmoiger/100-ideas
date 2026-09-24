@@ -12,9 +12,10 @@ The 100 Ideas system transforms raw conceptual notes into production-ready publi
 graph TD
     subgraph Ingestion ["1. Idea Ingestion & Selection"]
         Cat["Catalogue Table (100-ideas.md)"] --> Sync["Catalog Snapshot"]
-        Inbox["Inbox Submissions (inbox.md)"] --> Dedup["Duplicate Checker"]
+        Inbox["Inbox Queue (inbox.md)"] --> Dedup["Duplicate Checker"]
         Sync --> Prov["Idea Provisioner"]
         Dedup --> Prov
+        Prov --> Archive["Inbox Archive (inbox-archive.md)"]
         Prov --> IdeaDir["artefacts/content/ideas/{id}/"]
     end
 
@@ -58,8 +59,10 @@ graph TD
 ## 2. Core Subsystems
 
 ### 2.1. Idea Ingestion & Selection (`services/ingestion/`)
-- **Dual-Path Ingestion (`REQ-ING-001`)**: Ingests batch catalog entries from `artefacts/product/100-ideas.md` and incremental submissions from `artefacts/product/inbox.md`.
-- **Deduplication Engine (`REQ-ING-002`)**: Normalises titles and checks semantic word overlap before provisioning.
+- **Dual-Path Continuous Ingestion (`REQ-ING-001`, `TASK-016`)**: Ingests batch catalogue entries from `artefacts/product/100-ideas.md` and continuous, irregular submissions from `artefacts/product/inbox.md`.
+- **Automated Queue Drainage & Archiving (`TASK-016`)**: Moves provisioned items from `inbox.md` to `artefacts/product/inbox-archive.md` with assigned canonical IDs, timestamps, and provenance tracking.
+- **Decoupled Canonical Identifiers (`TASK-016`)**: Generates stable internal asset workspace keys (`idea-001`, `idea-105`, or semantic slugs like `idea-devx-latency`) decoupled from book chapter numbering, with no hardcoded 100 ceiling.
+- **Deduplication Engine (`REQ-ING-002`)**: Normalises titles and checks semantic word overlap against catalogue, active ideas, and inbox archive before provisioning.
 - **Resilient Synchronisation (`REQ-ING-003`)**: Automatically falls back to `100-ideas.snapshot.md` when external symlinks are unresolvable in sandboxed environments.
 - **Canonical Provisioning (`REQ-ING-004`)**: Creates deterministic folder structures with `meta.yaml` under `artefacts/content/ideas/{idea-id}/`.
 
@@ -70,9 +73,9 @@ graph TD
 - **Pure-Python Image Generation (`REQ-ENR-004`)**: Produces valid, high-resolution PNG binaries (`assets/illustration.png`) without external C-library graphics dependencies.
 
 ### 2.3. Book Mode & Typst Typesetting (`services/typesetting/`)
-- **Author Persona Drafter (`REQ-BOK-001`, `REQ-BOK-002`)**: Implements the Amara Osei persona (`context/persona/author.md`)—prioritising information density, economic reality, bold takeaway lead-ins, and hype puncturing.
+- **Author Persona Drafter (`REQ-BOK-001`, `REQ-BOK-002`)**: Implements the Amara Osei persona (`context/persona/author.md`)—prioritising information density, economic reality, bold takeaway lead-ins, and hype puncturing. Supports decoupled chapter numbers.
 - **Typst Translator (`REQ-BOK-003`)**: Converts semantic Markdown into clean Typst markup (`chapter.typ`), embedding callouts and vector-scaled figures.
-- **Publication-Grade PDF Compilation (`REQ-BOK-004`, `REQ-BOK-005`)**: Uses the subrepo Typst design system (`typst/brands/neutral.typ`) to compile single chapters and unified multi-chapter volumes with Table of Contents.
+- **Publication-Grade PDF Compilation (`REQ-BOK-004`, `REQ-BOK-005`)**: Uses the subrepo Typst design system (`typst/brands/neutral.typ`) to compile single chapters and unified multi-chapter volumes with Table of Contents and dynamic chapter ordering.
 
 ### 2.4. Blog & Social Publishing (`services/publishing/`)
 - **Author & Blogger Persona (`REQ-BLG-001`)**: Implements the AS author persona (`context/persona/author.md`)—punch over preamble, plain language with physical metaphors ("digital rust", "sweating assets"), bold lead-in takeaways, "So What?" economic equation analysis, and a 400–800 word target length.
@@ -88,10 +91,12 @@ The project exposes a unified CLI dispatcher `ideas` via Python entrypoints:
 
 ```bash
 # Ingestion & Synchronisation
-uv run ideas sync                                       # Synchronise catalog to snapshot
-uv run ideas catalog --all --provision                  # Parse and provision all catalog ideas
-uv run ideas inbox --process                            # Process pending ideas in inbox.md
-uv run ideas add "Title" "Synopsis" --category "DevX"   # Add new idea to inbox
+uv run ideas sync                                                       # Synchronise catalogue to snapshot
+uv run ideas catalog --all --provision                                  # Parse and provision all catalogue ideas
+uv run ideas inbox                                                      # Preview pending ideas in inbox.md with duplicate check
+uv run ideas inbox --provision                                          # Provision pending ideas and archive to inbox-archive.md
+uv run ideas add --title "Title" --synopsis "Synopsis"                  # Add new idea with auto-incremented ID
+uv run ideas add --title "Title" --synopsis "Synopsis" --id "idea-devx" # Add idea with custom semantic ID
 
 # Content Enrichment
 uv run ideas enrich --idea 1                            # Run research synthesis and visual generation
@@ -121,7 +126,7 @@ When executing automated tasks or subagent delegations within this repository, a
 | Path | Owner / Scope | Agent Instructions |
 |------|---------------|-------------------|
 | `context/` | Canonical Subrepo | **Read-only** during development. Contains shared agent definitions, workflows, personas, and rules managed via `git-subrepo`. Never edit manually. |
-| `artefacts/product/` | Requirements & Product | Houses `requirements.md`, `100-ideas.md`, `100-ideas.snapshot.md`, and `inbox.md`. |
+| `artefacts/product/` | Requirements & Product | Houses `requirements.md`, `100-ideas.md`, `100-ideas.snapshot.md`, `inbox.md`, and `inbox-archive.md`. |
 | `artefacts/architecture/` | System Architecture | Houses `architecture.md`, `data-model.md`, and `agent-app-architecture-comparison.md`. |
 | `artefacts/content/ideas/{id}/` | Idea Workspace | Contains all assets for idea `{id}`: `meta.yaml`, `research/`, `assets/`, `book/`, `blog/`. |
 | `artefacts/content/resources/` | Shared Library | Houses M:N reusable reference documents (`new-devx-vision.md`, etc.). |
