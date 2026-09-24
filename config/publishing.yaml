@@ -1,0 +1,47 @@
+# 100-Ideas CMS Publication Configuration (REQ-BLG-004)
+# Configuration for Hostinger web deployment and extensible CMS adapters.
+
+default_platform: hostinger_static
+
+platforms:
+  hostinger_static:
+    name: "Hostinger Static / Astro / Hugo"
+    format: markdown
+    frontmatter_mapping:
+      title: title
+      slug: slug
+      date: date
+      excerpt: description
+      tags: tags
+      cover_image: image
+      author: author
+    output_pattern: "artefacts/content/ideas/{idea_id}/blog/post.md"
+    include_toc: false
+
+  hostinger_wordpress:
+    name: "Hostinger Managed WordPress"
+    format: wordpress_rest
+    endpoint: "https://example.com/wp-json/wp/v2/posts"
+    status: draft
+    field_mapping:
+      title: title
+      content: body_html
+      slug: slug
+      date: date
+      excerpt: excerpt
+      tags: tags
+      featured_media: cover_image
+
+  hostinger_ghost:
+    name: "Hostinger Ghost CMS"
+    format: ghost_admin_api
+    endpoint: "https://example.com/ghost/api/admin/posts/"
+    status: draft
+    field_mapping:
+      title: title
+      markdown: body_markdown
+      slug: slug
+      published_at: date
+      custom_excerpt: excerpt
+      tags: tags
+      feature_image: cover_image
