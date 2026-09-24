@@ -7,7 +7,7 @@
 **Branch**: `feature/requirements`
 **Status**: In Progress
 **Scope**: Agentic content pipeline automating the transformation of 100 ideas into a typeset Typst book and publication-ready blog posts.
-**Design**: [requirements.md](file:///Users/avi/Repos/100-ideas/artefacts/product/requirements.md)
+**Design**: [requirements.md](file:///Users/avi/Repos/100-ideas/artefacts/product/requirements.md), [review-continuous-publishing.md](file:///Users/avi/Repos/100-ideas/artefacts/architecture/review-continuous-publishing.md)
 **Created**: 2026-09-17
 **Amended**: 2026-09-17 — Initial task breakdown and workflow/agent tracking setup
 
@@ -36,7 +36,7 @@
 | TASK-017 | high | pending | TASK-015 | Implement multi-volume book mapping configuration (`config/volumes.yaml`) and compilation |
 | TASK-018 | high | pending | TASK-015 | Implement state machine and manual edit protection safeguards (`human_modified`) in `meta.yaml` |
 | TASK-019 | medium | pending | TASK-018 | Implement interactive agentic chat revision loop and hierarchical channel syndication (SSOT) |
-| TASK-020 | high | pending | TASK-015 | Implement live Gemini Python SDK (`google-genai`) integration with prompt caching and token governance |
+| TASK-020 | high | pending | TASK-015 | Implement live Gemini Python SDK integration, prompt caching, and `gemini-sdk` skill |
 
 ---
 
@@ -120,6 +120,7 @@
 
 ### TASK-016: Continuous Ingestion Lifecycle & ID Decoupling
 - **Status**: Pending
+- **Architecture Reference**: [review-continuous-publishing.md §3](file:///Users/avi/Repos/100-ideas/artefacts/architecture/review-continuous-publishing.md#3-continuous-ingestion-lifecycle--decoupled-id-architecture) (Resolves DEF-001, DEF-002)
 - **Description**: Refactor ingestion subsystem to support continuous and irregular intake via `inbox.md`. Move processed inbox entries to `inbox-archive.md` (or update with status markers). Decouple internal idea identifiers (e.g. `idea-<slug>` or stable sequence) from publication chapter numbering. Remove hardcoded `max_id_num = 100` ceiling in `cli.py`.
 - **Acceptance Criteria**:
   - Ingesting an idea from `inbox.md` updates the inbox file without re-parsing processed items on subsequent runs.
@@ -128,6 +129,7 @@
 
 ### TASK-017: Multi-Volume Book Configuration & Mapping
 - **Status**: Pending
+- **Architecture Reference**: [review-continuous-publishing.md §4](file:///Users/avi/Repos/100-ideas/artefacts/architecture/review-continuous-publishing.md#4-multi-volume-book-configuration--compilation-configvolumesyaml) (Resolves DEF-002)
 - **Description**: Implement flexible volume mapping configuration (`config/volumes.yaml`) allowing arbitrary ideas to be mapped to specific volumes (e.g. 100 ideas per book, thematic volumes), parts, and ordered chapter slots. Update Typst compiler to generate volume-specific PDFs with dedicated TOC and introduction.
 - **Acceptance Criteria**:
   - Valid schema in `config/volumes.yaml` defining volumes, metadata, parts, and ordered lists of idea IDs.
@@ -136,6 +138,7 @@
 
 ### TASK-018: Human-in-the-Loop Safeguards & State Machine
 - **Status**: Pending
+- **Architecture Reference**: [review-continuous-publishing.md §5](file:///Users/avi/Repos/100-ideas/artefacts/architecture/review-continuous-publishing.md#5-human-in-the-loop--state-machine-architecture) (Resolves DEF-003, DEF-005)
 - **Description**: Add workflow state machine and manual edit protection to `meta.yaml` (`stage: raw | research_ready | draft_in_progress | human_review | approved | published`, `human_modified: bool`). Prevent `--force` from destroying human edits to `chapter.md`, `post.md`, or `notes.md` unless an explicit `--overwrite-manual` flag is supplied. Incorporate editorial quality gates (voice fidelity check against `context/persona/author.md`) and dual-target asset path resolution (Typst figure embedding vs. CMS publishing staging).
 - **Acceptance Criteria**:
   - `meta.yaml` tracks lifecycle stage, edit timestamps, review status, and human modification flag.
@@ -146,19 +149,33 @@
 
 ### TASK-019: Interactive Agentic Chat Revision Loop & Channel Syndication
 - **Status**: Pending
+- **Architecture Reference**: [review-continuous-publishing.md §7 & §8](file:///Users/avi/Repos/100-ideas/artefacts/architecture/review-continuous-publishing.md#7-single-source-of-truth-ssot-syndication-model) (Resolves DEF-006)
 - **Description**: Implement interactive agent revision interface allowing conversational refinement of drafted text, selective prompt adjustment, and section-by-section regeneration. Refactor Blog Mode and Social Mode to syndicate from the approved master chapter manuscript (Single Source of Truth) rather than diverging from the raw synopsis.
 - **Acceptance Criteria**:
   - Agentic chat interaction protocol defined for iterative review and revision.
   - Blog post and LinkedIn post generators can consume approved `book/chapter.md` to extract core arguments and ensure channel alignment.
   - Refinement commands support targeted section updates without rewriting entire documents.
 
-### TASK-020: Live Gemini Python SDK Integration & Token Governance
+### TASK-020: Live Gemini Python SDK Integration, Token Guard Rails & `gemini-sdk` Skill
 - **Status**: Pending
-- **Description**: Integrate the official `google-genai` Python SDK using `GEMINI_API_KEY` from `.env`. Implement tiered models (`gemini-2.5-flash` for research/extraction, `gemini-2.5-pro` for creative drafting, `imagen-3.0` for visuals). Replace primitive regex matching in `services/enrichment/researcher.py` with Gemini-driven research synthesis deeply grounded in linked `artefacts/content/resources/`. Add native context caching for shared whitepapers and persona instructions to eliminate redundant token expenditure.
+- **Architecture Reference**: [review-continuous-publishing.md §6](file:///Users/avi/Repos/100-ideas/artefacts/architecture/review-continuous-publishing.md#6-live-gemini-sdk-integration-google-genai--token-governance) (Resolves DEF-004)
+- **Description**: Author the canonical `gemini-sdk` skill (`context/skills/gemini-sdk.md` and projected `.agents/skills/gemini-sdk/SKILL.md`) providing procedural guidance for modern `google-genai` Python SDK patterns (client initialization, Pydantic structured output, Gemini Context Caching, Imagen 3, and token telemetry). Implement robust token burn guard rails and circuit breakers across `services/enrichment/` and `services/typesetting/` to prevent runaway API spend during live execution. Integrate `google-genai` into `services/enrichment/researcher.py` and `services/typesetting/drafter.py` using tiered models (`gemini-2.5-flash`, `gemini-2.5-pro`, `imagen-3.0`).
+- **Token Burn Guard Rails**:
+  1. **Pre-Flight Cost Estimator & `--dry-run`**: CLI commands calculate exact prompt token count and projected USD cost before dispatching any live API request.
+  2. **Hard Spend Circuit Breaker**: Configurable run and session budget caps in `.env` (`MAX_SESSION_SPEND_USD`, default `$2.00`; `MAX_IDEA_TOKENS`, default 50,000 tokens). Exceeding budget raises `BudgetExhaustedError` and halts all execution immediately.
+  3. **Cryptographic Input Fingerprinting**: Computes SHA-256 hash of `(model + prompt + input_documents)`. If `meta.yaml` contains a matching execution fingerprint, live API calls are completely suppressed (zero token burn) unless `--force-llm` is explicitly passed.
+  4. **Context Clamping**: Hard cap on un-cached input context (maximum 12,000 tokens per call) preventing runaway file ingestion from overloading prompts.
+  5. **Sequential Concurrency**: Enforces strictly sequential processing (`concurrency=1`) for batch LLM operations to eliminate runaway parallel token burn and rate limit throttling.
+  6. **Interactive Batch Confirmation**: Running `--all` or multi-idea ranges displays aggregate estimated token count and USD cost, requiring explicit user approval (`[y/N]`) before any API calls fire unless `--yes` is supplied.
 - **Acceptance Criteria**:
+  - Canonical `gemini-sdk` skill authored and projected with zero adapter drift (`uv run agent-drift` passes).
   - Secure API key resolution from `.env` via `python-dotenv` without committing secrets.
-  - Research synthesis directly extracts empirical data, trade-offs, and grounded citations from linked `artefacts/content/resources/` using Gemini rather than regex keyword matching.
+  - Research synthesis directly extracts empirical data, trade-offs, and grounded citations from linked `artefacts/content/resources/` using Gemini context caching rather than regex keyword matching.
   - Prompt caching active for reusable context (> 32k tokens or shared resource library), dramatically reducing token costs.
-  - Token telemetry (cached tokens, prompt tokens, completion tokens, latency) recorded in `meta.yaml`.
+  - Pre-flight token and cost estimation verified via `--dry-run`.
+  - Circuit breaker verified with unit tests simulating budget exhaustion and asserting execution halts cleanly.
+  - Token telemetry (cached tokens, prompt tokens, completion tokens, latency, cost estimate) recorded in `meta.yaml`.
   - Offline fallback / mock mode retained for fast local testing.
+
+
 

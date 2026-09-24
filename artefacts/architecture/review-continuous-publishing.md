@@ -220,6 +220,38 @@ Foundational whitepapers in `artefacts/content/resources/` (e.g. `new-devx-visio
 - Subsequent drafting and research calls reference `cached_content=cache.name`.
 - **Cost Reduction**: Reusable input tokens are discounted by up to 75%, and latency drops significantly across batch executions.
 
+### 6.4. Token Burn Guard Rails & Circuit Breakers
+
+To guard against runaway token expenditure, uncontrolled API loops, and unexpected billing spikes during continuous generation runs, the execution pipeline enforces six non-negotiable guard rails:
+
+1. **Pre-Flight Cost Estimator & Dry Run (`--dry-run`)**:
+   - Every CLI execution path (enrichment, drafting, syndication) supports a `--dry-run` flag.
+   - Pre-flight token counting uses `client.models.count_tokens` to calculate precise input volume and project total cost (USD) against model pricing tiers before issuing generation requests.
+
+2. **Hard Spend Circuit Breaker**:
+   - Environment variables define explicit ceiling parameters: `MAX_SESSION_SPEND_USD` (default `$2.00`) and `MAX_IDEA_TOKENS` (default `50,000` tokens).
+   - A central telemetry accumulator tracks cumulative session consumption. If an operation would breach the configured ceiling, execution halts immediately with a `BudgetExhaustedError`, ensuring zero additional token burn.
+
+3. **Cryptographic Input Fingerprinting**:
+   - The system computes a SHA-256 fingerprint over the tuple `(model_name, prompt_template_hash, input_documents_hash)`.
+   - Before dispatching to Gemini, `meta.yaml` is queried for an identical execution fingerprint. If found, generation is bypassed entirely (zero token burn), returning cached outputs unless `--force-llm` is explicitly supplied.
+
+4. **Context Window Clamping**:
+   - Un-cached context injected into prompt payloads is capped at a strict upper ceiling (maximum 12,000 tokens).
+   - Long resource documents exceeding this ceiling are either routed through Gemini Context Caching or summarised sequentially to prevent accidental multi-megabyte prompt payloads.
+
+5. **Strictly Sequential Concurrency**:
+   - Batch operations enforce strictly sequential execution (`concurrency=1`). Unbounded parallel requests (e.g. `asyncio.gather` over 100 ideas) are forbidden to eliminate runaway billing spirals and rate-limit throttling.
+
+6. **Interactive Batch Confirmation**:
+   - Any batch command operating over multiple ideas or passing `--all` prompts with an interactive confirmation showing the aggregate idea count, estimated token burn, and projected USD cost:
+     `Ready to process 12 ideas (~145k tokens, est. $0.48 USD). Proceed? [y/N]`
+   - Scripted or non-interactive environments must explicitly supply `--yes` to proceed.
+
+### 6.5. Authoring Skill & API Governance (`gemini-sdk`)
+
+A dedicated agent skill (`gemini-sdk`) is defined in `context/skills/gemini-sdk.md` (and projected to `.agents/skills/gemini-sdk/SKILL.md`) to guide engineering agents on idiomatic `google-genai` usage, proper error handling, exponential backoff, structured output via Pydantic schemas, and token conservation patterns.
+
 ---
 
 ## 7. Single Source of Truth (SSOT) Syndication Model
@@ -267,6 +299,6 @@ This architectural review formally defines the acceptance specifications for dow
 - **TASK-017**: Multi-volume configuration (`config/volumes.yaml`) and dynamic Typst assembly.
 - **TASK-018**: State machine in `meta.yaml`, `human_modified` protection guard, and editorial quality gates.
 - **TASK-019**: Interactive chat revision loop and SSOT syndication (Book -> Blog -> Social).
-- **TASK-020**: Live Gemini SDK (`google-genai`) integration with prompt caching and resource grounding.
+- **TASK-020**: Live Gemini SDK (`google-genai`) integration, token burn guard rails, circuit breakers, and `gemini-sdk` skill.
 
 **Sign-off**: Architecture review complete and verified against LESS engineering principles and workspace invariants. Ready for implementation.
