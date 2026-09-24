@@ -239,7 +239,82 @@ def build_parser() -> argparse.ArgumentParser:
         "--force", "-f", action="store_true", help="Force add even if duplicate detected"
     )
 
+    # enrich
+    enrich_p = subparsers.add_parser(
+        "enrich", help="Enrich idea with empirical research synthesis and visual illustrations"
+    )
+    enrich_p.add_argument(
+        "--idea", "-i", required=True, help="Idea ID (e.g. idea-001) or 1-based index (e.g. 1)"
+    )
+    enrich_p.add_argument(
+        "--research", "-r", action="store_true", help="Run research synthesis phase only"
+    )
+    enrich_p.add_argument(
+        "--visuals", "-v", action="store_true", help="Run visual asset generation phase only"
+    )
+    enrich_p.add_argument(
+        "--regenerate-image",
+        action="store_true",
+        help="Regenerate visual asset without touching research notes",
+    )
+    enrich_p.add_argument(
+        "--refinement", help="Optional stylistic or metaphorical refinement prompt for visual asset"
+    )
+    enrich_p.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Force re-generation of existing research or visual assets",
+    )
+
     return parser
+
+
+def handle_enrich_command(args: argparse.Namespace) -> int:
+    """Handle `enrich` subcommand: run research synthesis and/or visual generation."""
+    from services.enrichment.pipeline import enrich_idea
+
+    repo_root: Path = Path(__file__).resolve().parent.parent.parent
+    catalog_path, snapshot_path, _, ideas_dir = get_default_paths()
+    resources_dir: Path = repo_root / "artefacts" / "content" / "resources"
+
+    # Default to running both research and visuals if neither flag is explicitly set
+    do_research: bool = True
+    do_visuals: bool = True
+    if args.research and not args.visuals:
+        do_visuals = False
+    elif args.visuals and not args.research:
+        do_research = False
+
+    try:
+        results = enrich_idea(
+            idea_id_or_num=args.idea,
+            ideas_root=ideas_dir,
+            resources_root=resources_dir,
+            catalog_path=catalog_path,
+            snapshot_path=snapshot_path,
+            do_research=do_research,
+            do_visuals=do_visuals,
+            regenerate_image=args.regenerate_image,
+            refinement=args.refinement,
+            force=args.force,
+        )
+        print(f"Enrichment completed for [{results['idea_id']}] '{results['title']}':")
+        if "research_notes" in results:
+            status_str: str = (
+                "generated" if results.get("research_generated") else "cached (skipped)"
+            )
+            print(f"  Research Notes: {results['research_notes']} [{status_str}]")
+        if "illustration" in results:
+            status_str: str = (
+                "generated" if results.get("visuals_generated") else "cached (skipped)"
+            )
+            print(f"  Visual Prompt:  {results['visual_prompt']}")
+            print(f"  Illustration:   {results['illustration']} [{status_str}]")
+        return 0
+    except Exception as exc:
+        print(f"Enrichment error: {exc}", file=sys.stderr)
+        return 1
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -255,6 +330,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return handle_inbox_command(args)
     if args.subcommand == "add":
         return handle_add_command(args)
+    if args.subcommand == "enrich":
+        return handle_enrich_command(args)
 
     parser.print_help()
     return 1

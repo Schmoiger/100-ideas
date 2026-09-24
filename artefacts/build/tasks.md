@@ -24,8 +24,8 @@
 | TASK-005 | medium | pending | TASK-003, TASK-004 | Run `uv run agent-harness` to compile adapters and verify zero drift (`uv run agent-drift`) |
 | TASK-006 | high | completed | TASK-001 | Resolve `100-ideas.md` symlink/sandbox ingestion and test batch catalog parsing |
 | TASK-007 | medium | completed | TASK-006 | Implement incremental inbox ingestion parser (`artefacts/product/inbox.md`) |
-| TASK-008 | high | pending | TASK-004 | Implement shared M:N resource library indexing and idea linking |
-| TASK-009 | high | pending | TASK-004 | Implement Gemini visual prompt derivation and image generation agent integration |
+| TASK-008 | high | completed | - | Implement shared M:N resource library indexing and idea linking |
+| TASK-009 | high | completed | - | Implement visual prompt derivation and editorial image generation engine |
 | TASK-010 | high | pending | TASK-004 | Implement Book Mode drafting (author persona) and Typst typesetting pipeline |
 | TASK-011 | high | pending | TASK-004 | Implement Blog Mode drafting (blogger persona), Hostinger frontmatter, and LinkedIn exports |
 | TASK-012 | medium | pending | TASK-008 | Implement Markdown portability export bundling |
@@ -65,3 +65,20 @@
 - **Description**: Run `uv run agent-harness` to project new context definitions into runtime adapters (`AGENTS.md`, `GEMINI.md`, etc.).
 - **Acceptance Criteria**:
   - `uv run agent-drift` exits with code 0.
+
+### TASK-008: Shared M:N Resource Library Indexing & Idea Linking
+- **Status**: Completed
+- **Description**: Implement shared resource loader in `services/enrichment/resource_library.py` and research synthesiser in `services/enrichment/researcher.py` that extracts empirical evidence, economic trade-offs, and counterarguments to `research/notes.md`.
+- **Acceptance Criteria**:
+  - Verified resource links from `manifest.yaml` and tag overlap.
+  - Generates structured markdown notes with mandatory sections.
+  - Idempotent execution unless forced.
+
+### TASK-009: Visual Prompt Derivation & Editorial Image Generation
+- **Status**: Completed
+- **Description**: Implement prompt generator in `services/enrichment/visuals.py` producing metaphorical prompts and valid PNG binaries without third-party graphics dependencies.
+- **Acceptance Criteria**:
+  - Valid PNG binary starting with `\x89PNG\r\n\x1a\n` saved to `assets/illustration.png`.
+  - Negative constraints avoid AI art clichés.
+  - Independent `--regenerate-image` preserves research notes.
+

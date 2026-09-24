@@ -9,9 +9,13 @@ source_reference: New DevX Vision, Executive Summary, Line 43; New DevX Vision, 
   State Assessment, Line 83; New DevX Vision, Competitive Advantage Opportunity, Line
   105
 tags: []
-status: ingested
-linked_resources: []
+status: enriched
+linked_resources:
+- new-devx-vision
 created_at: '2026-09-24T13:58:58.549845+00:00'
 updated_at: '2026-09-24T13:58:58.549845+00:00'
 model_tiers: {}
 token_usage: {}
+research_notes: research/notes.md
+illustration: assets/illustration.png
+visual_prompt: assets/prompt.txt
