@@ -199,13 +199,63 @@ flowchart TD
 
 ---
 
-## 5. Related Documents
+## 5. Blog & Social Publishing Subsystem Architecture (`REQ-BLG-001` - `REQ-BLG-004`)
+
+The Blog & Social Publishing Subsystem adapts enriched ideas into conversational, opinionated articles formatted for web hosting (e.g. Hostinger, Ghost, WordPress, Astro) and professional social distribution (LinkedIn).
+
+```mermaid
+graph TD
+    A[Enriched Idea & Dossier] --> B[Opinionated Blogger Persona Drafter]
+    B -->|REQ-BLG-001| C[Blog Post Draft]
+    C -->|REQ-BLG-002| D[Hostinger Post: blog/post.md]
+    D -->|REQ-BLG-003| E[LinkedIn Post: blog/linkedin.md]
+    D -->|REQ-BLG-004| F[CMS Adapter Engine: config/publishing.yaml]
+    F --> G[WordPress / Ghost / Static Site Payloads]
+```
+
+
+### Core Architecture Components
+
+1. **Dr Sarah Chen Persona Drafter (`REQ-BLG-001`)**:
+   - Implements the style defined in `context/persona/opinionated-blogger.md`.
+   - Adopts conversational prose with parentheticals (`"(incidentally, a great product...)"`), provocative opening hooks, question-driven section headings, and practical "So What?" implications.
+   - Constrained to 400-800 words (2-4 minute read time) with high scannability.
+
+2. **Hostinger-Ready Standardised YAML Frontmatter (`REQ-BLG-002`)**:
+   - Generates `artefacts/content/ideas/{idea-id}/blog/post.md` with standardised frontmatter:
+     - `title`: Compelling article title.
+     - `slug`: URL-friendly identifier.
+     - `date`: ISO publication date.
+     - `excerpt`: Concise 1-2 sentence teaser.
+     - `tags`: List of category and topic tags.
+     - `cover_image`: Path to visual asset (`../assets/illustration.png`).
+     - `author`: "Dr Sarah Chen".
+   - Followed by clean, valid Markdown formatted for web deployment.
+
+3. **Companion Social Post Generator (`REQ-BLG-003`)**:
+   - Produces high-converting LinkedIn post in `artefacts/content/ideas/{idea-id}/blog/linkedin.md`.
+   - Structures content with a provocative 1-2 line hook, 3-5 bullet takeaways, clear call to action, and 3-5 relevant industry hashtags.
+   - Enforces a hard character limit of < 3,000 characters.
+
+4. **Extensible CMS Publication Adapters (`REQ-BLG-004`)**:
+   - Configured via `config/publishing.yaml`.
+   - Translates normalised blog posts into target CMS formats:
+     - **Hostinger Static / Astro / Hugo**: Clean Markdown with customised frontmatter field mappings.
+     - **WordPress REST API**: JSON payload with HTML content, excerpt, and categories.
+     - **Ghost API**: Mobiledoc or Lexical payload with tags and featured image references.
+
+---
+
+## 6. Related Documents
 
 - **Product Requirements**: [requirements.md](product/requirements.md)
 - **Conceptual Data Model**: [data-model.md](data-model.md)
 - **Author Persona**: [context/persona/author.md](../../context/persona/author.md)
+- **Blogger Persona**: [context/persona/opinionated-blogger.md](../../context/persona/opinionated-blogger.md)
 - **Typst Typesetting Subrepo**: [typst/README.md](../../typst/README.md)
+- **Publishing Configuration**: [config/publishing.yaml](../../config/publishing.yaml)
 - **Architecture Comparison Guide**: [agent-app-architecture-comparison.md](product/agent-app-architecture-comparison.md)
 - **Task Tracking**: [tasks.md](../build/tasks.md)
+
 
 

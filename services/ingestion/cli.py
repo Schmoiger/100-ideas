@@ -313,6 +313,58 @@ def build_parser() -> argparse.ArgumentParser:
         help="Force re-compilation even if PDF already exists",
     )
 
+    # Subcommand: blog (Hostinger blog post drafting)
+    blog_p = subparsers.add_parser(
+        "blog",
+        help="Draft Hostinger-ready blog post for an idea (REQ-BLG-001, REQ-BLG-002, REQ-BLG-004)",
+    )
+    blog_p.add_argument(
+        "--idea",
+        "-i",
+        help="Idea ID (e.g. idea-001) or 1-based index",
+    )
+    blog_p.add_argument(
+        "--all",
+        "-a",
+        action="store_true",
+        help="Generate blog posts for all provisioned ideas",
+    )
+    blog_p.add_argument(
+        "--platform",
+        "-p",
+        choices=["hostinger_static", "hostinger_wordpress", "hostinger_ghost"],
+        help="Target CMS publication platform adapter (default: hostinger_static)",
+    )
+    blog_p.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Force re-generation even if blog post already exists",
+    )
+
+    # Subcommand: social (LinkedIn companion post generation)
+    social_p = subparsers.add_parser(
+        "social",
+        help="Generate companion LinkedIn social post for an idea (REQ-BLG-003)",
+    )
+    social_p.add_argument(
+        "--idea",
+        "-i",
+        help="Idea ID (e.g. idea-001) or 1-based index",
+    )
+    social_p.add_argument(
+        "--all",
+        "-a",
+        action="store_true",
+        help="Generate social posts for all provisioned ideas",
+    )
+    social_p.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Force re-generation even if social post already exists",
+    )
+
     return parser
 
 
@@ -439,6 +491,102 @@ def handle_enrich_command(args: argparse.Namespace) -> int:
         return 1
 
 
+def handle_blog_command(args: argparse.Namespace) -> int:
+    """Handle `blog` subcommand: draft Hostinger-ready blog post with optional CMS adaptation."""
+    from services.publishing.pipeline import process_blog_and_social
+
+    repo_root: Path = Path(__file__).resolve().parent.parent.parent
+    catalog_path, snapshot_path, _, ideas_dir = get_default_paths()
+
+    if not args.idea and not args.all:
+        print("Error: Specify --idea <id> or --all", file=sys.stderr)
+        return 1
+
+    ideas_to_process: list[str] = []
+    if args.idea:
+        ideas_to_process = [args.idea]
+    elif args.all:
+        if ideas_dir.is_dir():
+            for p in sorted(ideas_dir.iterdir()):
+                if p.is_dir() and p.name.startswith("idea-"):
+                    ideas_to_process.append(p.name)
+
+    if not ideas_to_process:
+        print("No ideas found to process.", file=sys.stderr)
+        return 1
+
+    for idea_target in ideas_to_process:
+        try:
+            results = process_blog_and_social(
+                idea_id_or_num=idea_target,
+                ideas_root=ideas_dir,
+                repo_root=repo_root,
+                catalog_path=catalog_path,
+                snapshot_path=snapshot_path,
+                do_blog=True,
+                do_social=False,
+                cms_platform=args.platform,
+                force=args.force,
+            )
+            status_str: str = "generated" if results.get("blog_generated") else "cached (skipped)"
+            print(f"Blog Post completed for [{results['idea_id']}] '{results['title']}':")
+            print(f"  Post Markdown: {results['blog_post']} [{status_str}]")
+            if "cms_export" in results:
+                exp = results["cms_export"]
+                print(f"  CMS Adapter:   {exp['platform']} ({exp['format']})")
+        except Exception as exc:
+            print(f"Error processing blog for {idea_target}: {exc}", file=sys.stderr)
+            return 1
+
+    return 0
+
+
+def handle_social_command(args: argparse.Namespace) -> int:
+    """Handle `social` subcommand: generate companion LinkedIn social post."""
+    from services.publishing.pipeline import process_blog_and_social
+
+    repo_root: Path = Path(__file__).resolve().parent.parent.parent
+    catalog_path, snapshot_path, _, ideas_dir = get_default_paths()
+
+    if not args.idea and not args.all:
+        print("Error: Specify --idea <id> or --all", file=sys.stderr)
+        return 1
+
+    ideas_to_process: list[str] = []
+    if args.idea:
+        ideas_to_process = [args.idea]
+    elif args.all:
+        if ideas_dir.is_dir():
+            for p in sorted(ideas_dir.iterdir()):
+                if p.is_dir() and p.name.startswith("idea-"):
+                    ideas_to_process.append(p.name)
+
+    if not ideas_to_process:
+        print("No ideas found to process.", file=sys.stderr)
+        return 1
+
+    for idea_target in ideas_to_process:
+        try:
+            results = process_blog_and_social(
+                idea_id_or_num=idea_target,
+                ideas_root=ideas_dir,
+                repo_root=repo_root,
+                catalog_path=catalog_path,
+                snapshot_path=snapshot_path,
+                do_blog=False,
+                do_social=True,
+                force=args.force,
+            )
+            status_str: str = "generated" if results.get("social_generated") else "cached (skipped)"
+            print(f"Social Post completed for [{results['idea_id']}] '{results['title']}':")
+            print(f"  LinkedIn Post: {results['linkedin_post']} [{status_str}]")
+        except Exception as exc:
+            print(f"Error processing social for {idea_target}: {exc}", file=sys.stderr)
+            return 1
+
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """CLI entry point."""
     parser: argparse.ArgumentParser = build_parser()
@@ -458,6 +606,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return handle_draft_command(args)
     if args.subcommand == "typeset":
         return handle_typeset_command(args)
+    if args.subcommand == "blog":
+        return handle_blog_command(args)
+    if args.subcommand == "social":
+        return handle_social_command(args)
 
     parser.print_help()
     return 1

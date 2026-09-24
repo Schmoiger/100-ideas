@@ -27,7 +27,7 @@
 | TASK-008 | high | completed | - | Implement shared M:N resource library indexing and idea linking |
 | TASK-009 | high | completed | - | Implement visual prompt derivation and editorial image generation engine |
 | TASK-010 | high | completed | - | Implement Book Mode drafting (author persona) and Typst typesetting pipeline |
-| TASK-011 | high | pending | TASK-004 | Implement Blog Mode drafting (blogger persona), Hostinger frontmatter, and LinkedIn exports |
+| TASK-011 | high | completed | - | Implement Blog Mode drafting (blogger persona), Hostinger frontmatter, and LinkedIn exports |
 | TASK-012 | medium | pending | TASK-008 | Implement Markdown portability export bundling |
 
 ---
@@ -90,5 +90,16 @@
   - Semantic Markdown converted to Typst markup embedding callouts, comparison tables, and illustrations.
   - Typst CLI invokes `neutral.typ` to produce valid publication-grade PDFs for single chapters and aggregated multi-chapter volumes with Table of Contents.
   - Idempotent CLI execution via `ideas draft` and `ideas typeset`.
+
+### TASK-011: Blog Mode Drafting, Hostinger Frontmatter, and LinkedIn Exports
+- **Status**: Completed
+- **Description**: Implement blog drafter adopting Dr Sarah Chen opinionated blogger persona, Hostinger-compatible YAML frontmatter generation, companion LinkedIn post export, and configurable CMS publishing adapters.
+- **Acceptance Criteria**:
+  - Article draft strictly adheres to `context/persona/opinionated-blogger.md` (provocative opening hook, conversational parentheticals, question-driven sections, "So What?" analysis, and 400-800 word count).
+  - Hostinger blog post saved to `artefacts/content/ideas/{idea-id}/blog/post.md` with standardised YAML frontmatter (`title`, `slug`, `date`, `excerpt`, `tags`, `cover_image`).
+  - Companion LinkedIn post saved to `artefacts/content/ideas/{idea-id}/blog/linkedin.md` with high-converting hook, 3-5 scannable bullets, CTA, hashtags, and < 3,000 characters.
+  - CMS adapter engine configurable via `config/publishing.yaml` supporting WordPress, Ghost, and Static Astro/Hugo outputs.
+  - Idempotent CLI integration via `ideas blog` and `ideas social`.
+
 
 
