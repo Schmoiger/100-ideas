@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 from typing import Sequence
 
 from services.ingestion.dedup import check_duplicate
 from services.ingestion.models import IdeaRecord
-from services.ingestion.parsers import parse_inbox_markdown, parse_markdown_table
+from services.ingestion.parsers import (
+    archive_inbox_entries,
+    parse_inbox_archive,
+    parse_inbox_markdown,
+    parse_markdown_table,
+)
 from services.ingestion.provisioner import (
     load_existing_provisioned_ideas,
     provision_idea,
@@ -26,6 +32,36 @@ def get_default_paths() -> tuple[Path, Path, Path, Path]:
     inbox_path: Path = repo_root / "artefacts" / "product" / "inbox.md"
     ideas_dir: Path = repo_root / "artefacts" / "content" / "ideas"
     return catalog_path, snapshot_path, inbox_path, ideas_dir
+
+
+def get_inbox_archive_path() -> Path:
+    """Return default project path for inbox archive."""
+    repo_root: Path = Path(__file__).resolve().parent.parent.parent
+    return repo_root / "artefacts" / "product" / "inbox-archive.md"
+
+
+def get_next_idea_number(
+    existing_provisioned: list[IdeaRecord],
+    catalog_records: list[IdeaRecord] | None = None,
+    archive_records: list[IdeaRecord] | None = None,
+) -> int:
+    """Determine highest existing numeric idea index and return next integer.
+
+    Decoupled from hardcoded 100 ceiling or floor to support continuous publishing.
+    """
+    max_num: int = 0
+    all_records: list[IdeaRecord] = list(existing_provisioned)
+    if catalog_records:
+        all_records.extend(catalog_records)
+    if archive_records:
+        all_records.extend(archive_records)
+
+    for r in all_records:
+        match = re.search(r"\d+", r.id)
+        if match:
+            max_num = max(max_num, int(match.group()))
+
+    return max_num + 1
 
 
 def handle_sync_command(args: argparse.Namespace) -> int:
@@ -88,39 +124,43 @@ def handle_catalog_command(args: argparse.Namespace) -> int:
 
 
 def handle_inbox_command(args: argparse.Namespace) -> int:
-    """Handle `inbox` subcommand: parse inbox.md, check duplicates, and provision."""
+    """Handle `inbox` subcommand: parse inbox.md, check duplicates, provision, and archive."""
     catalog_path, snapshot_path, inbox_path, ideas_dir = get_default_paths()
+    archive_path: Path = get_inbox_archive_path()
 
     # Load all existing ideas to avoid ID collisions and detect duplicates
     existing_provisioned: list[IdeaRecord] = load_existing_provisioned_ideas(ideas_dir)
+    archived_ideas: list[IdeaRecord] = parse_inbox_archive(archive_path)
 
-    # Determine highest existing idea number
-    max_id_num: int = 100
+    cat_records: list[IdeaRecord] = []
     try:
         resolved_src: Path = resolve_catalog_source(catalog_path, snapshot_path)
-        cat_records: list[IdeaRecord] = parse_markdown_table(resolved_src)
-        if cat_records:
-            max_id_num = max(max_id_num, len(cat_records))
+        cat_records = parse_markdown_table(resolved_src)
     except Exception:
         pass
 
-    for r in existing_provisioned:
-        if r.id.startswith("idea-") and r.id[5:].isdigit():
-            max_id_num = max(max_id_num, int(r.id[5:]))
+    next_id_num: int = get_next_idea_number(
+        existing_provisioned=existing_provisioned,
+        catalog_records=cat_records,
+        archive_records=archived_ideas,
+    )
 
-    inbox_ideas: list[IdeaRecord] = parse_inbox_markdown(inbox_path, start_id=max_id_num + 1)
+    inbox_ideas: list[IdeaRecord] = parse_inbox_markdown(inbox_path, start_id=next_id_num)
     if not inbox_ideas:
         print(f"No pending idea entries found in {inbox_path}.")
         return 0
 
+    all_known_records: list[IdeaRecord] = existing_provisioned + cat_records + archived_ideas
+
     print(f"Found {len(inbox_ideas)} entry/entries in inbox:")
     for idea in inbox_ideas:
-        is_dup, matched_rec, reason = check_duplicate(idea, existing_provisioned)
+        is_dup, matched_rec, reason = check_duplicate(idea, all_known_records)
         dup_warning: str = f" [WARNING DUPLICATE: {reason}]" if is_dup else ""
         print(f"  [{idea.id}] {idea.title}{dup_warning}")
 
     if args.provision:
         print(f"\nProvisioning inbox ideas into {ideas_dir}...")
+        provisioned: list[IdeaRecord] = []
         for idea in inbox_ideas:
             is_dup, matched_rec, reason = check_duplicate(idea, existing_provisioned)
             if is_dup and not args.force:
@@ -128,6 +168,15 @@ def handle_inbox_command(args: argparse.Namespace) -> int:
                 continue
             p_dir: Path = provision_idea(idea, ideas_dir, force=args.force)
             print(f"  Provisioned: {idea.id} -> {p_dir}")
+            provisioned.append(idea)
+
+        if provisioned:
+            archive_inbox_entries(
+                inbox_path=inbox_path,
+                archive_path=archive_path,
+                provisioned_records=provisioned,
+            )
+            print(f"Archived {len(provisioned)} entry/entries to {archive_path.name}.")
         print("Inbox provisioning complete.")
 
     return 0
@@ -136,6 +185,7 @@ def handle_inbox_command(args: argparse.Namespace) -> int:
 def handle_add_command(args: argparse.Namespace) -> int:
     """Handle `add` subcommand: directly add an idea through CLI/chat interface."""
     catalog_path, snapshot_path, _, ideas_dir = get_default_paths()
+    archive_path: Path = get_inbox_archive_path()
 
     title: str = args.title.strip()
     synopsis: str = args.synopsis.strip()
@@ -148,30 +198,38 @@ def handle_add_command(args: argparse.Namespace) -> int:
 
     # Load existing provisioned ideas
     existing_provisioned: list[IdeaRecord] = load_existing_provisioned_ideas(ideas_dir)
+    archived_ideas: list[IdeaRecord] = parse_inbox_archive(archive_path)
 
-    max_id_num: int = 100
+    cat_records: list[IdeaRecord] = []
     try:
         resolved_src: Path = resolve_catalog_source(catalog_path, snapshot_path)
-        cat_records: list[IdeaRecord] = parse_markdown_table(resolved_src)
-        if cat_records:
-            max_id_num = max(max_id_num, len(cat_records))
+        cat_records = parse_markdown_table(resolved_src)
     except Exception:
         pass
 
-    for r in existing_provisioned:
-        if r.id.startswith("idea-") and r.id[5:].isdigit():
-            max_id_num = max(max_id_num, int(r.id[5:]))
+    if args.id:
+        target_id: str = args.id.strip()
+        if not target_id.startswith("idea-"):
+            target_id = f"idea-{target_id}"
+    else:
+        next_num: int = get_next_idea_number(
+            existing_provisioned=existing_provisioned,
+            catalog_records=cat_records,
+            archive_records=archived_ideas,
+        )
+        target_id = f"idea-{next_num:03d}"
 
     new_idea = IdeaRecord(
-        id=f"idea-{max_id_num + 1:03d}",
+        id=target_id,
         title=title,
         synopsis=synopsis,
         source_reference=source,
         tags=tags,
     )
 
+    all_known_records: list[IdeaRecord] = existing_provisioned + cat_records + archived_ideas
     # Check duplicates per REQ-ING-006
-    is_dup, matched_rec, reason = check_duplicate(new_idea, existing_provisioned)
+    is_dup, matched_rec, reason = check_duplicate(new_idea, all_known_records)
     if is_dup:
         print(f"Warning: Potential duplicate detected: {reason}")
         if not args.force:
@@ -235,6 +293,9 @@ def build_parser() -> argparse.ArgumentParser:
     add_p.add_argument("--synopsis", "-s", required=True, help="Idea synopsis")
     add_p.add_argument("--tags", help="Comma-separated tags or domain")
     add_p.add_argument("--source", help="Source or reference notes")
+    add_p.add_argument(
+        "--id", help="Explicit canonical idea identifier (e.g. idea-105 or idea-devx-latency)"
+    )
     add_p.add_argument(
         "--force", "-f", action="store_true", help="Force add even if duplicate detected"
     )
