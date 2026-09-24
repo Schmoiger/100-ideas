@@ -16,6 +16,7 @@ def generate_linkedin_post(
     idea: IdeaRecord,
     ideas_root: Path,
     force: bool = False,
+    overwrite_manual: bool = False,
 ) -> tuple[Path, bool]:
     """Generate high-converting companion LinkedIn post adhering to REQ-BLG-003.
 
@@ -25,15 +26,25 @@ def generate_linkedin_post(
     - Character count strictly under 3,000 characters.
     - Relevant hashtags.
     - Saved to artefacts/content/ideas/{idea-id}/blog/linkedin.md.
+    - Refuses to overwrite if human_modified=True without overwrite_manual=True.
     """
+    from services.ingestion.safeguards import check_manual_edit_safeguard
+
     idea_dir = ideas_root / idea.id
     blog_dir = idea_dir / "blog"
     blog_dir.mkdir(parents=True, exist_ok=True)
     linkedin_file = blog_dir / "linkedin.md"
 
-    # Check cache / idempotency
-    if linkedin_file.is_file() and not force:
-        return linkedin_file, False
+    # Check cache / idempotency & manual edit protection
+    if linkedin_file.is_file():
+        if not force and not overwrite_manual:
+            return linkedin_file, False
+        check_manual_edit_safeguard(
+            target_file=linkedin_file,
+            idea=idea,
+            force=force,
+            overwrite_manual=overwrite_manual,
+        )
 
     title = idea.title
     cat = idea.tags[0].title() if idea.tags else "Engineering"

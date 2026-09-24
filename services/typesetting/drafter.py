@@ -18,6 +18,44 @@ def _extract_number(idea_id: str) -> int:
     return int(match.group()) if match else 1
 
 
+def parse_research_notes_sections(research_content: str) -> dict[str, list[str]]:
+    """Extract structured findings from research dossier markdown."""
+    sections: dict[str, list[str]] = {
+        "empirical_evidence": [],
+        "economic_tradeoffs": [],
+        "counterarguments": [],
+        "citations": [],
+    }
+    if not research_content:
+        return sections
+
+    current_section: str | None = None
+    for line in research_content.splitlines():
+        trimmed = line.strip()
+        if "## Empirical Evidence" in trimmed:
+            current_section = "empirical_evidence"
+            continue
+        if "## Economic Trade-offs" in trimmed:
+            current_section = "economic_tradeoffs"
+            continue
+        if "## Counterarguments" in trimmed:
+            current_section = "counterarguments"
+            continue
+        if "## Citations" in trimmed:
+            current_section = "citations"
+            continue
+        if trimmed.startswith("## ") or trimmed == "---":
+            current_section = None
+            continue
+
+        if current_section and trimmed.startswith("- "):
+            item = trimmed[2:].strip()
+            if item and not (item.startswith("*No ") and item.endswith("recorded.*")):
+                sections[current_section].append(item)
+
+    return sections
+
+
 def build_chapter_draft(
     idea: IdeaRecord,
     research_content: str,
@@ -27,6 +65,7 @@ def build_chapter_draft(
 ) -> ChapterDraft:
     """Compose substantive chapter manuscript adhering to author persona."""
     num: int = chapter_num if chapter_num is not None else _extract_number(idea.id)
+    res_sections = parse_research_notes_sections(research_content)
 
     # 1. Lead Punch: No throat-clearing, arresting opening
     lead_punch: str = (
@@ -50,6 +89,9 @@ def build_chapter_draft(
         f"True delivery velocity is not measured by how much raw code enters the repo, "
         f"but by the cycle time required to prove that code is correct and safe to run."
     )
+    if res_sections["empirical_evidence"]:
+        ev_items = "\n".join(f"- {e}" for e in res_sections["empirical_evidence"])
+        mechanics_section += f"\n\n**Empirical Grounding & Field Observations**:\n{ev_items}"
 
     # 3. The Economic Equation: "So What?" lens, trade-offs table, 2 a.m. pager reality
     economic_section: str = (
@@ -64,6 +106,9 @@ def build_chapter_draft(
         f"| **Learning Tax** | Sunk-cost manual boilerplate typing | Architectural specification and governance |\n"
         f"| **Economic Payoff** | Linear capacity scaling | Decoupled execution velocity |"
     )
+    if res_sections["economic_tradeoffs"]:
+        to_items = "\n".join(f"- {t}" for t in res_sections["economic_tradeoffs"])
+        economic_section += f"\n\n**Constraint Dynamics & Real-World Trade-offs**:\n{to_items}"
 
     # 4. Puncturing the Hype: Wry realism & empirical humility
     hype_section: str = (
@@ -75,6 +120,9 @@ def build_chapter_draft(
         f"Treat '{idea.title}' not as religious dogma, but as practical thinking scaffolding. "
         f"Cut the marketing fluff, verify every assumption with deterministic tests, and inspect the operational reality."
     )
+    if res_sections["counterarguments"]:
+        ca_items = "\n".join(f"- {c}" for c in res_sections["counterarguments"])
+        hype_section += f"\n\n**Counterarguments & Observed Anti-Patterns**:\n{ca_items}"
 
     # 5. Actionable Takeaways: Scannable, bold lead-ins, British English
     takeaways: list[str] = [
@@ -94,6 +142,7 @@ def build_chapter_draft(
         economic_section=economic_section,
         hype_section=hype_section,
         takeaways=takeaways,
+        citations=res_sections["citations"],
         illustration_path=illustration_rel_path,
     )
 
@@ -102,20 +151,31 @@ def draft_book_chapter(
     idea: IdeaRecord,
     ideas_root: Path,
     force: bool = False,
+    overwrite_manual: bool = False,
     chapter_num: int | None = None,
 ) -> tuple[Path, bool]:
     """Generate book chapter manuscript and write to artefacts/content/ideas/{id}/book/chapter.md.
 
     Handles REQ-BOK-001 and REQ-BOK-002:
     Returns (chapter_file_path, was_generated).
+    Refuses to overwrite if human_modified=True without overwrite_manual=True.
     """
+    from services.ingestion.safeguards import check_manual_edit_safeguard
+
     idea_dir: Path = ideas_root / idea.id
     book_dir: Path = idea_dir / "book"
     book_dir.mkdir(parents=True, exist_ok=True)
 
     chapter_file: Path = book_dir / "chapter.md"
-    if chapter_file.is_file() and not force:
-        return chapter_file, False
+    if chapter_file.is_file():
+        if not force and not overwrite_manual:
+            return chapter_file, False
+        check_manual_edit_safeguard(
+            target_file=chapter_file,
+            idea=idea,
+            force=force,
+            overwrite_manual=overwrite_manual,
+        )
 
     # Read research notes if present
     notes_file: Path = idea_dir / "research" / "notes.md"
@@ -156,6 +216,8 @@ def draft_book_chapter(
             meta_data: Any = yaml.safe_load(meta_file.read_text(encoding="utf-8"))
             if isinstance(meta_data, dict):
                 meta_data["chapter_draft"] = "book/chapter.md"
+                if meta_data.get("stage") in ("raw", "research_ready", "draft_in_progress"):
+                    meta_data["stage"] = "human_review"
                 temp_meta: Path = idea_dir / ".meta.yaml.tmp"
                 temp_meta.write_text(
                     yaml.safe_dump(meta_data, sort_keys=False, allow_unicode=True), encoding="utf-8"

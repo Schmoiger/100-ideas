@@ -34,7 +34,7 @@
 | TASK-015 | critical | completed | TASK-014 | Solution Architect Review: Continuous Ingestion, Human-in-the-Loop, and Multi-Volume Architecture |
 | TASK-016 | high | completed | TASK-015 | Refactor continuous ingestion lifecycle, inbox archiving, and decouple idea ID from chapter numbers |
 | TASK-017 | high | completed | TASK-015 | Implement multi-volume book mapping configuration (`config/volumes.yaml`) and compilation |
-| TASK-018 | high | pending | TASK-015 | Implement state machine and manual edit protection safeguards (`human_modified`) in `meta.yaml` |
+| TASK-018 | high | completed | TASK-015 | Implement state machine and manual edit protection safeguards (`human_modified`) in `meta.yaml` |
 | TASK-019 | medium | pending | TASK-018 | Implement interactive agentic chat revision loop and hierarchical channel syndication (SSOT) |
 | TASK-020 | high | pending | TASK-015 | Implement live Gemini Python SDK integration, prompt caching, and `gemini-sdk` skill |
 
@@ -138,7 +138,7 @@
   - Idea chapter numbers and running headers in Typst match their assigned position within the volume, not their raw database ID.
 
 ### TASK-018: Human-in-the-Loop Safeguards & State Machine
-- **Status**: Pending
+- **Status**: Completed
 - **Architecture Reference**: [review-continuous-publishing.md §5](file:///Users/avi/Repos/100-ideas/artefacts/architecture/review-continuous-publishing.md#5-human-in-the-loop--state-machine-architecture) (Resolves DEF-003, DEF-005)
 - **Description**: Add workflow state machine and manual edit protection to `meta.yaml` (`stage: raw | research_ready | draft_in_progress | human_review | approved | published`, `human_modified: bool`). Prevent `--force` from destroying human edits to `chapter.md`, `post.md`, or `notes.md` unless an explicit `--overwrite-manual` flag is supplied. Incorporate editorial quality gates (voice fidelity check against `context/persona/author.md`) and dual-target asset path resolution (Typst figure embedding vs. CMS publishing staging).
 - **Acceptance Criteria**:

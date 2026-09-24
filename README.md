@@ -84,6 +84,12 @@ graph TD
 - **Companion LinkedIn Channel Posts (`REQ-BLG-003`)**: Generates high-converting LinkedIn posts in `blog/linkedin.md` with punchy hooks, 3–5 bullet takeaways, CTA, hashtags, and < 3,000 characters.
 - **Extensible CMS Publication Adapters (`REQ-BLG-004`)**: Configured via `config/publishing.yaml` to export posts to Hostinger Static (Astro/Hugo), WordPress REST API, or Ghost Admin API.
 
+### 2.5. Lifecycle State Machine & Human Safeguards (`services/ingestion/`, `services/publishing/`)
+- **Deterministic State Machine (`TASK-018`)**: Tracks lifecycle stage in `meta.yaml` through explicit transitions: `raw` -> `research_ready` -> `draft_in_progress` -> `human_review` -> `approved` -> `published`. Invalid transitions are rejected.
+- **Manual Edit Protection (`human_modified`)**: Preserves human edits by preventing automated pipelines from overwriting `notes.md`, `chapter.md`, `post.md`, or `linkedin.md` if `human_modified: true` or `locked: true`, unless an explicit `--overwrite-manual` flag is supplied.
+- **Editorial Quality Gate (`services/publishing/quality_gate.py`)**: Evaluates manuscripts against the author persona (`context/persona/author.md`)—verifying British English spelling (`-ise`, `-our`), absence of prohibited AI clichés, bold lead-in phrases, and economic realism before promoting an idea to `approved`.
+- **Dual-Target Asset Resolution (`services/publishing/assets.py`)**: Provides unified asset path mapping supporting relative figure paths for Typst compilation alongside web-ready URLs or CDN staging for CMS publication.
+
 ---
 
 ## 3. CLI Command Reference (`ideas`)
@@ -116,6 +122,16 @@ uv run ideas blog --idea 1                              # Draft Hostinger blog p
 uv run ideas blog --idea 1 --platform hostinger_static  # Export using specific CMS adapter
 uv run ideas blog --all                                 # Generate blog posts for all ideas
 uv run ideas social --idea 1                            # Generate companion LinkedIn social post
+
+# Review, State Machine & Human Safeguards
+uv run ideas review --idea 1                             # Inspect lifecycle stage, review status, and quality
+uv run ideas review --idea 1 --approve                   # Validate quality gate and promote stage to approved
+uv run ideas review --idea 1 --reject "Needs refinement" # Return idea to draft_in_progress with feedback
+uv run ideas review --idea 1 --lock                      # Lock idea against all automated modifications
+uv run ideas review --idea 1 --unlock                    # Unlock idea
+uv run ideas mark-edited --idea 1                        # Flag idea as containing human edits (human_modified: true)
+uv run ideas mark-edited --idea 1 --clear                # Clear human modification flag
+uv run ideas draft --idea 1 --overwrite-manual          # Force overwrite even when human_modified is true
 ```
 
 ---
