@@ -16,7 +16,7 @@ class BlogFrontmatter:
     excerpt: str
     tags: list[str] = field(default_factory=list)
     cover_image: str = "../assets/illustration.png"
-    author: str = "Dr Sarah Chen"
+    author: str = "AS"
     reading_time_minutes: int = 3
     draft: bool = False
 

@@ -30,31 +30,45 @@ def _create_test_idea(idea_id: str = "idea-001") -> IdeaRecord:
 
 
 def test_blogger_persona_adherence() -> None:
-    """Verify blogger persona features: word count, provocative hook, parentheticals, question headers, and So What section."""
+    """Verify blogger persona features adhering to AS author persona (context/persona/author.md)."""
     idea = _create_test_idea("idea-010")
     body = generate_opinionated_blog_body(idea)
     words = count_words(body)
 
     # Word count: 400 - 800 words target (REQ-BLG-001)
-    assert 300 <= words <= 850, f"Expected 400-800 words, got {words}"
+    assert 350 <= words <= 850, f"Expected 400-800 words, got {words}"
 
-    # Provocative opening hook
-    assert "brutally honest" in body.lower() or "hate" in body.lower()
+    # 1. Punch over preamble (sharp momentum hook)
+    assert "delivery bottlenecks have nothing to do with writing code" in body
 
-    # Conversational parentheticals
-    assert "(" in body and ")" in body
-    assert "incidentally" in body.lower() or "full disclosure" in body.lower()
+    # 2. Plain language with physical metaphors
+    assert "digital rust" in body
+    assert "rat's nest" in body
 
-    # Question-driven sections
-    assert "## Why Are We" in body
-    assert "## What Does This Actually Fix?" in body
+    # 3. Descriptive headings
+    assert "## The Operational Reality" in body
+    assert "## What Actually Changes" in body
 
-    # So What? analysis
-    assert "## So What?" in body
+    # 4. Economic Equation & So What?
+    assert "## So What? The Economic Equation" in body
 
-    # Principles in parallel structure
-    assert "Simplicity is universal" in body
-    assert "Simplicity is hard" in body
+    # 5. Bold lead-ins for scanability
+    assert "- **Eliminating Digital Rust**:" in body
+    assert "- **Throughput Decoupling**:" in body
+
+    # 6. Prohibited AI slop check
+    prohibited_slop = [
+        "delve",
+        "testament to",
+        "tapestry",
+        "beacon",
+        "revolutionise",
+        "seamless",
+        "groundbreaking",
+        "pivotal",
+    ]
+    for slop in prohibited_slop:
+        assert slop not in body.lower(), f"Found prohibited AI slop '{slop}' in blog body"
 
 
 def test_hostinger_frontmatter_validation() -> None:
@@ -87,7 +101,7 @@ def test_hostinger_frontmatter_validation() -> None:
         assert "tags" in fm
         assert "cover_image" in fm
         assert "author" in fm
-        assert fm["author"] == "Dr Sarah Chen"
+        assert fm["author"] == "AS"
         assert fm["cover_image"] == "../assets/illustration.png"
         assert len(fm["tags"]) >= 2
 

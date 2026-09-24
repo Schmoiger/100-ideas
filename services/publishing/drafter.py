@@ -1,4 +1,4 @@
-"""Opinionated blog article drafter implementing Dr Sarah Chen persona (REQ-BLG-001, REQ-BLG-002)."""
+"""Blog article drafter implementing AS author persona (context/persona/author.md)."""
 
 from __future__ import annotations
 
@@ -25,73 +25,80 @@ def count_words(text: str) -> int:
     return len(words)
 
 
-def generate_opinionated_blog_body(idea: IdeaRecord, research_summary: str = "") -> str:
-    """Synthesise conversational, opinionated blog post adhering to Dr Sarah Chen persona.
+def generate_author_blog_body(idea: IdeaRecord, research_summary: str = "") -> str:
+    """Synthesise punchy, pragmatic blog post adhering to AS author persona (context/persona/author.md).
 
     Implements:
-    - Provocative opening hook upfront.
-    - Conversational parentheticals.
-    - Question-driven framing.
-    - 'So What?' practical implications.
-    - Principles in parallel structure.
-    - Self-deprecating honesty and real-world examples.
-    - 400-800 word target length.
+    - Punch over preamble (sharp momentum-building opening line).
+    - Plain language with physical metaphors ('sweating assets', 'digital rust').
+    - Maximum information density, zero throat-clearing.
+    - Wry realism and hype puncturing.
+    - The economic equation and 'So What?' operational consequences.
+    - Empirical humility ('Except I might be wrong').
+    - Bold lead-ins for scanability.
+    - Target 400-800 words.
+    - Strict British English spelling.
     """
     cat = idea.tags[0].title() if idea.tags else "Software Engineering"
     title = idea.title
     desc = idea.synopsis or (
-        "Reimagining developer tooling through disciplined agentic workflows and automated synthesis."
+        "Engineering capacity cannot keep pace with business demand when bound by manual developer bandwidth."
     )
 
-    # Clean description
     desc_clean = desc.strip()
     if not desc_clean.endswith("."):
         desc_clean += "."
 
-    body_text = f"""Let's be brutally honest: most enterprise tooling exists to solve problems we invented for ourselves.
+    body_text = f"""Most enterprise software delivery bottlenecks have nothing to do with writing code.
 
-We spend weeks debating architectural purity, writing boilerplate that could bore a stone, and wondering why shipping a minor feature feels like wading through wet cement (incidentally, usually because someone decided three layers of caching were "strictly necessary").
+They are caused by digital rust: the slow accumulation of manual handoffs, brittle glue scripts, and fragmented context across teams. We spend millions on compute infrastructure whilst sweating our engineering talent on the cognitive equivalent of moving piles of dirt from one corner of a field to another.
 
 Enter **{title}**.
 
-At its core, this idea addresses an undeniable operational friction in {cat}: {desc_clean}
+Strip away the vendor hype, and the underlying mechanical constraint in {cat} is simple: {desc_clean}
 
 ---
 
-## Why Are We Still Doing This By Hand?
+## The Operational Reality
 
-If you observe an engineering team tackling this problem today, you will witness a familiar ritual. Smart engineers manually orchestrate repetitive handoffs, context-switch between five browser tabs, and paste fragments of data across disjointed tools. It is tedious. It is error-prone. And frankly, it is an astonishingly expensive use of creative engineering talent.
+Watch any delivery team struggle with this today. You do not see a deficit of intelligence; you see a rat's nest of fragmented workflows.
 
-When I was leading developer productivity initiatives at Google, we noticed a recurring paradox: teams consistently overestimated the difficulty of the core algorithm whilst underestimating the friction of the day-to-day workflow.
+Smart engineers spend their working hours manually coordinating status updates, copy-pasting configuration fragments, and babysitting builds across disjointed portals. It is slow, it is unrepeatable, and it carries an astonishingly steep operational tax.
 
-{title} flips that equation. Instead of demanding that developers conform to an inflexible pipeline, it automates the mechanical heavy lifting—preserving human judgement for the high-leverage edge cases.
+Every manual touchpoint introduces latency and cognitive decay. When delivery throughput is constrained by developer bandwidth, the entire enterprise slows to a crawl—regardless of how many agile ceremonies or strategic roadmaps management produces.
 
----
-
-## What Does This Actually Fix?
-
-Let's dissect what happens when this capability is deployed into an active pipeline:
-
-- **Context Preservation**: Eliminates the cognitive penalty of manual state tracking across separate tools.
-- **Deterministic Guardrails**: Replaces speculative intuition with empirical checks and reproducible verification.
-- **Velocity Without Chaos**: Accelerates cycle time whilst enforcing strict architectural consistency.
-
-Is it flawless? Of course not. (Full disclosure: I have seen teams attempt to automate workflows before standardising their basic processes, and the result is merely high-speed dysfunction.) But when layered onto a solid foundation, the leverage is unmistakable.
+{title} confronts this economic equation directly. Rather than treating developer bandwidth as an infinite resource to be consumed by mechanical coordination, it automates the predictable pathways.
 
 ---
 
-## So What? The Practical Reality
+## What Actually Changes
 
-So what does this mean if you are leading an engineering organisation or building production services tomorrow morning?
+When this architectural shift is deployed into a live delivery pipeline, the practical consequences are immediate:
 
-Simplicity is universal. Simplicity is effective. Simplicity is hard. Simplicity is ongoing.
+- **Eliminating Digital Rust**: Automated synthesis removes the bespoke glue code that teams build to compensate for fragmented tooling.
+- **Contract-First Verification**: Speculative tribal knowledge is replaced with deterministic checks and reproducible artefacts.
+- **Throughput Decoupling**: Business delivery velocity decouples from raw headcount, allowing teams to scale impact without linear staffing costs.
 
-Do not wait for a monolithic platform overhaul to address workflow friction. Start by identifying the single most repetitive, context-draining handoff in your current pipeline. Implement structured automation around that narrow boundary, verify the outcome with automated tests, and measure the cognitive relief.
+Is it a silver bullet? Hardly. (If your underlying architectural boundaries are a disaster, automating them simply accelerates the creation of debt at scale.) But applied with disciplined intent, the operational leverage is undeniable.
 
-You don't own the process if the process owns your engineers' focus. It's time to build tooling that respects human attention.
+---
+
+## So What? The Economic Equation
+
+So what should an engineering leader or systems practitioner do with this on Monday morning?
+
+Ask the hard commercial question: what is manual coordination actually costing your organisation in delayed market feedback, context exhaustion, and defect remediation?
+
+Stop tolerating mechanical drag as an inevitable cost of doing business. Identify the single most friction-laden handoff between concept and production in your pipeline. Put automated, verified rails around it. Measure cycle time and failure rate before and after.
+
+Online services are driven by usage, not sentiment. Build engineering workflows that preserve human judgement for the problems that genuinely require it.
 """
 
     return body_text.strip()
+
+
+# Backward-compatible alias
+generate_opinionated_blog_body = generate_author_blog_body
 
 
 def draft_blog_post(
@@ -100,7 +107,7 @@ def draft_blog_post(
     ideas_catalog: list[IdeaRecord] | None = None,
     force: bool = False,
 ) -> tuple[Path, bool]:
-    """Generate Hostinger-compatible blog post with YAML frontmatter.
+    """Generate Hostinger-compatible blog post adhering to AS author persona.
 
     Implements REQ-BLG-001 and REQ-BLG-002.
     Returns (post_path, was_generated).
@@ -132,18 +139,18 @@ def draft_blog_post(
     )
 
     # Synthesise body
-    body_markdown = generate_opinionated_blog_body(idea)
+    body_markdown = generate_author_blog_body(idea)
     words = count_words(body_markdown)
     reading_time = max(1, round(words / 200))
 
     frontmatter = BlogFrontmatter(
-        title=f"{idea.title}: A Pragmatic Guide to Cutting Development Friction",
+        title=f"{idea.title}: Cutting Delivery Drag",
         slug=slug,
         date=today_str,
         excerpt=excerpt,
         tags=tags,
         cover_image="../assets/illustration.png",
-        author="Dr Sarah Chen",
+        author="AS",
         reading_time_minutes=reading_time,
         draft=False,
     )

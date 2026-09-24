@@ -205,7 +205,7 @@ The Blog & Social Publishing Subsystem adapts enriched ideas into conversational
 
 ```mermaid
 graph TD
-    A[Enriched Idea & Dossier] --> B[Opinionated Blogger Persona Drafter]
+    A[Enriched Idea & Dossier] --> B[AS Author Persona Drafter]
     B -->|REQ-BLG-001| C[Blog Post Draft]
     C -->|REQ-BLG-002| D[Hostinger Post: blog/post.md]
     D -->|REQ-BLG-003| E[LinkedIn Post: blog/linkedin.md]
@@ -216,9 +216,9 @@ graph TD
 
 ### Core Architecture Components
 
-1. **Dr Sarah Chen Persona Drafter (`REQ-BLG-001`)**:
-   - Implements the style defined in `context/persona/opinionated-blogger.md`.
-   - Adopts conversational prose with parentheticals (`"(incidentally, a great product...)"`), provocative opening hooks, question-driven section headings, and practical "So What?" implications.
+1. **AS Author Persona Drafter (`REQ-BLG-001`)**:
+   - Implements the style defined in `context/persona/author.md`.
+   - Adopts punch over preamble (momentum-building opening hook), plain language with physical metaphors ("digital rust", "sweating assets", "rat's nest"), bold lead-in takeaways, and the economic equation ("So What?").
    - Constrained to 400-800 words (2-4 minute read time) with high scannability.
 
 2. **Hostinger-Ready Standardised YAML Frontmatter (`REQ-BLG-002`)**:
@@ -229,7 +229,7 @@ graph TD
      - `excerpt`: Concise 1-2 sentence teaser.
      - `tags`: List of category and topic tags.
      - `cover_image`: Path to visual asset (`../assets/illustration.png`).
-     - `author`: "Dr Sarah Chen".
+     - `author`: "AS".
    - Followed by clean, valid Markdown formatted for web deployment.
 
 3. **Companion Social Post Generator (`REQ-BLG-003`)**:
@@ -250,8 +250,7 @@ graph TD
 
 - **Product Requirements**: [requirements.md](product/requirements.md)
 - **Conceptual Data Model**: [data-model.md](data-model.md)
-- **Author Persona**: [context/persona/author.md](../../context/persona/author.md)
-- **Blogger Persona**: [context/persona/opinionated-blogger.md](../../context/persona/opinionated-blogger.md)
+- **Author & Blogger Persona**: [context/persona/author.md](../../context/persona/author.md)
 - **Typst Typesetting Subrepo**: [typst/README.md](../../typst/README.md)
 - **Publishing Configuration**: [config/publishing.yaml](../../config/publishing.yaml)
 - **Architecture Comparison Guide**: [agent-app-architecture-comparison.md](product/agent-app-architecture-comparison.md)
