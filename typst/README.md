@@ -75,6 +75,7 @@ flowchart TD
     F --> J["assemble books: combine parts + interstitials → build/pdf/{book}.pdf"]
 ```
 
+
 ---
 
 ## Quick Start (Host Repository Setup)
@@ -300,6 +301,8 @@ Interstitials enforce `#pagebreak(weak: true)` before divider elements. Weak pag
    flowchart LR
        ...
    ```
+
+
    The build pipeline detects the override, suppresses automated rendering, and embeds the manual image located in `docs/diagrams/target-architecture-v2.png`.
 
 ---

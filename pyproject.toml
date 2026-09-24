@@ -32,6 +32,7 @@ dependencies = [
 [project.scripts]
 agent-harness = "context.scripts.generators.generate_adapters:main"
 agent-drift = "context.scripts.validators.adapter_drift:main"
+ideas = "services.ingestion.cli:main"
 
 [project.optional-dependencies]
 test = [
@@ -62,10 +63,10 @@ ignore = [
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-testpaths = ["context/scripts/tests"]
+testpaths = ["context/scripts/tests", "services/ingestion/tests"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["context"]
+packages = ["context", "services"]
 
 [tool.hatch.build.targets.sdist]
 include = [
