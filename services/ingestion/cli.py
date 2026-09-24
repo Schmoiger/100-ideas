@@ -372,6 +372,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="Compile aggregated multi-chapter book volume with TOC",
     )
     typeset_p.add_argument(
+        "--volume",
+        "-v",
+        help="Volume ID from config/volumes.yaml (e.g. volume-1) to compile specific volume (TASK-017)",
+    )
+    typeset_p.add_argument(
+        "--all-volumes",
+        action="store_true",
+        help="Compile all volumes defined in config/volumes.yaml (TASK-017)",
+    )
+    typeset_p.add_argument(
+        "--volumes-config",
+        help="Custom path to volumes configuration YAML (default: config/volumes.yaml)",
+    )
+    typeset_p.add_argument(
         "--output-dir",
         "-o",
         help="Custom output directory for compiled book (default: artefacts/content/book)",
@@ -521,8 +535,14 @@ def handle_draft_command(args: argparse.Namespace) -> int:
 
 
 def handle_typeset_command(args: argparse.Namespace) -> int:
-    """Handle `typeset` subcommand: compile single chapter or aggregated book via Typst."""
-    from services.typesetting.pipeline import process_aggregated_book, process_book_chapter
+    """Handle `typeset` subcommand: compile single chapter, aggregated book, or volumes via Typst."""
+    from services.typesetting.pipeline import (
+        process_aggregated_book,
+        process_all_volumes,
+        process_book_chapter,
+        process_volume_book,
+    )
+    from services.typesetting.volumes import get_default_volumes_path
 
     repo_root: Path = Path(__file__).resolve().parent.parent.parent
     catalog_path, snapshot_path, _, ideas_dir = get_default_paths()
@@ -531,9 +551,20 @@ def handle_typeset_command(args: argparse.Namespace) -> int:
         if args.output_dir
         else repo_root / "artefacts" / "content" / "book"
     )
+    volumes_config_path: Path = (
+        Path(args.volumes_config).resolve()
+        if getattr(args, "volumes_config", None)
+        else get_default_volumes_path(repo_root)
+    )
 
-    if not args.idea and not args.all:
-        print("Error: Specify either --idea <id> or --all.", file=sys.stderr)
+    volume_arg = getattr(args, "volume", None)
+    all_volumes_arg = getattr(args, "all_volumes", False)
+
+    if not args.idea and not args.all and not volume_arg and not all_volumes_arg:
+        print(
+            "Error: Specify either --idea <id>, --all, --volume <id>, or --all-volumes.",
+            file=sys.stderr,
+        )
         return 1
 
     try:
@@ -562,6 +593,37 @@ def handle_typeset_command(args: argparse.Namespace) -> int:
             print("Aggregated Book Compilation completed:")
             print(f"  Total Chapters Included: {res_book['total_chapters']}")
             print(f"  Publication PDF:         {res_book['book_pdf']}")
+
+        if volume_arg:
+            custom_out = (
+                Path(args.output_dir).resolve() / f"{volume_arg}.pdf" if args.output_dir else None
+            )
+            res_vol = process_volume_book(
+                volume_id=volume_arg,
+                ideas_root=ideas_dir,
+                repo_root=repo_root,
+                config_path=volumes_config_path,
+                output_pdf_override=custom_out,
+                force=args.force,
+            )
+            print(
+                f"Volume Compilation completed for [{res_vol['volume_id']}] '{res_vol['title']}':"
+            )
+            print(f"  Total Chapters:  {res_vol['total_chapters']}")
+            print(f"  Publication PDF: {res_vol['volume_pdf']}")
+
+        if all_volumes_arg:
+            res_vols = process_all_volumes(
+                ideas_root=ideas_dir,
+                repo_root=repo_root,
+                config_path=volumes_config_path,
+                force=args.force,
+            )
+            print(f"Multi-Volume Compilation completed ({len(res_vols)} volumes):")
+            for vol_id, v_data in res_vols.items():
+                print(
+                    f"  [{vol_id}] {v_data['title']}: {v_data['total_chapters']} chapters -> {v_data['volume_pdf']}"
+                )
 
         return 0
     except Exception as exc:
