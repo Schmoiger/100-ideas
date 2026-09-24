@@ -121,7 +121,12 @@ def test_cli_handle_inbox_end_to_end() -> None:
                 "services.ingestion.cli.get_default_paths",
                 return_value=(catalog_file, snapshot_file, inbox_file, ideas_dir),
             ),
+            patch(
+                "services.cli.commands.ingest.get_default_paths",
+                return_value=(catalog_file, snapshot_file, inbox_file, ideas_dir),
+            ),
             patch("services.ingestion.cli.get_inbox_archive_path", return_value=archive_file),
+            patch("services.cli.commands.ingest.get_inbox_archive_path", return_value=archive_file),
         ):
             ret = handle_inbox_command(args)
             assert ret == 0
@@ -197,7 +202,12 @@ def test_cli_add_with_custom_semantic_id() -> None:
                 "services.ingestion.cli.get_default_paths",
                 return_value=(catalog_file, snapshot_file, inbox_file, ideas_dir),
             ),
+            patch(
+                "services.cli.commands.ingest.get_default_paths",
+                return_value=(catalog_file, snapshot_file, inbox_file, ideas_dir),
+            ),
             patch("services.ingestion.cli.get_inbox_archive_path", return_value=archive_file),
+            patch("services.cli.commands.ingest.get_inbox_archive_path", return_value=archive_file),
         ):
             ret = handle_add_command(args)
             assert ret == 0

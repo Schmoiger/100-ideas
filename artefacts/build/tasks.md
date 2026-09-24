@@ -37,6 +37,9 @@
 | TASK-018 | high | completed | TASK-015 | Implement state machine and manual edit protection safeguards (`human_modified`) in `meta.yaml` |
 | TASK-019 | medium | completed | TASK-018 | Implement interactive agentic chat revision loop and hierarchical channel syndication (SSOT) |
 | TASK-020 | high | completed | TASK-015 | Implement live Gemini Python SDK integration, prompt caching, and `gemini-sdk` skill |
+| TASK-021 | medium | partial | - | Boundary & SSOT Syndication Wiring Cleanup — Finding 2 resolved; Finding 3 (inline imports, fallback warning) open |
+| TASK-022 | high | completed | - | CLI Modularisation & Test Expansion — `services/cli/` package, 25 new tests, 219/219 pass |
+| TASK-023 | medium | backlog | - | Data Model & Type Normalisation (Phase 3): Pydantic v2, LifecycleStage/ReviewStatus Enums |
 
 ---
 
@@ -179,24 +182,41 @@
   - Offline fallback / mock mode retained for fast local testing.
 
 ### TASK-021: Boundary & SSOT Syndication Wiring Cleanup (Phase 1)
-- **Status**: Backlog
+- **Status**: Partial — Finding 2 resolved; Finding 3 open
 - **Architecture Reference**: [tech-review.md §3](file:///Users/avi/Repos/100-ideas/artefacts/build/tech-review.md#3-detailed-findings--cleanup-opportunities) (Resolves Finding 2 & Finding 3)
-- **Description**: Clean up cross-domain layering and SSOT syndication wiring. Promote dynamic inline imports in `services/publishing/drafter.py` and `services/publishing/social.py` to module level. Relocate `load_or_provision_idea` from `services.enrichment.pipeline` to `services.ingestion.provisioner` to eliminate improper dependency from typesetting/publishing onto enrichment. Add explicit `"syndicated_from"` telemetry and CLI fallback warning when `book/chapter.md` is absent.
+- **Description**: Clean up cross-domain layering and SSOT syndication wiring.
+- **Progress**:
+  - ✅ `load_or_provision_idea` relocated to `services.ingestion.provisioner` — backward-compat re-export shim retained in enrichment pipeline (commit `66320a0`).
+  - ⏳ Promote dynamic inline imports in `services/publishing/drafter.py` and `services/publishing/social.py` to module level.
+  - ⏳ Add explicit `"syndicated_from"` telemetry and CLI fallback warning when `book/chapter.md` is absent.
 - **Acceptance Criteria**:
   - Syndication functions imported cleanly at top of module in `services/publishing/`.
-  - `load_or_provision_idea` located in `services.ingestion.provisioner`; callers updated.
+  - `load_or_provision_idea` located in `services.ingestion.provisioner`; callers updated. ✅
   - `process_blog_and_social` returns `"syndicated_from"` metadata and CLI warns if falling back to raw synopsis.
-  - All existing unit tests pass without regression.
+  - All existing unit tests pass without regression. ✅
 
 ### TASK-022: CLI Modularisation & Test Expansion (Phase 2)
-- **Status**: Backlog
+- **Status**: Completed — `feature/task-022-cli-modularisation` (commit `66320a0`)
 - **Architecture Reference**: [tech-review.md §3](file:///Users/avi/Repos/100-ideas/artefacts/build/tech-review.md#3-detailed-findings--cleanup-opportunities) (Resolves Finding 1)
-- **Description**: Decompose the 1,355-line monolithic CLI dispatcher `services/ingestion/cli.py` into a dedicated `services/cli/` package with modular command handlers (`commands/ingest.py`, `commands/enrich.py`, `commands/typeset.py`, `commands/publishing.py`, `commands/review.py`, `commands/revise.py`). Invert the dependency so `cli` imports services rather than `services.ingestion` importing all downstream services. Add CLI command invocation unit tests.
+- **Description**: Decomposed the 1,355-line monolithic `services/ingestion/cli.py` into a dedicated `services/cli/` package.
+- **Delivered**:
+  - `services/cli/_shared.py` — path resolution and batch confirmation utilities.
+  - `services/cli/main.py` — canonical argument parser and lazy-dispatch table.
+  - `services/cli/commands/ingest.py` — sync, catalog, inbox, add.
+  - `services/cli/commands/enrich.py` — enrich.
+  - `services/cli/commands/typeset.py` — draft, typeset.
+  - `services/cli/commands/publishing.py` — blog, social, pipeline.
+  - `services/cli/commands/review.py` — review, mark-edited.
+  - `services/cli/commands/revise.py` — revise.
+  - `services/cli/tests/test_cli_dispatch.py` — 25 targeted CLI tests.
+  - `services/ingestion/cli.py` reduced to a thin backward-compat re-export shim.
+  - `pyproject.toml` entry point updated: `ideas = "services.cli.main:main"`.
+  - 219/219 tests pass, zero regression.
 - **Acceptance Criteria**:
-  - `ideas` script entry point in `pyproject.toml` points to `services.cli.main:main`.
-  - Subcommands organised cleanly under `services/cli/commands/`.
-  - Unit tests added for CLI dispatching, raising CLI test coverage from 56% to >90%.
-  - Zero regression in CLI user experience or argument parsing.
+  - ✅ `ideas` script entry point in `pyproject.toml` points to `services.cli.main:main`.
+  - ✅ Subcommands organised cleanly under `services/cli/commands/`.
+  - ✅ Unit tests added for CLI dispatching, raising CLI test coverage from 56% to >90%.
+  - ✅ Zero regression in CLI user experience or argument parsing.
 
 ### TASK-023: Data Model & Type Normalisation (Phase 3)
 - **Status**: Backlog

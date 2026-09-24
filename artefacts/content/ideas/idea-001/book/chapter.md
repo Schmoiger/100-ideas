@@ -48,7 +48,5 @@ Except I might be wrong about the timeline. What surprised me over twenty-five y
 
 ## Actionable Takeaways
 
-- **Map the binding constraint first**: Identify whether syntax production or validation latency throttles your team.
-- **Construct deterministic verification gates**: Never deploy autonomous changes without reproducible, isolated test suites.
-- **Sweat architectural contracts**: Spend leadership bandwidth refining specifications rather than micromanaging pull requests.
-- **Budget for the maintenance tail**: Ensure operational runbooks and telemetry scale alongside automated code generation.
+- **Measure cycle time first**: Track lead time to changes.
+- **Verify contracts**: Enforce test fixtures.

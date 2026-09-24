@@ -193,15 +193,17 @@ def test_cli_revise_command(monkeypatch: pytest.MonkeyPatch) -> None:
             ]
         )
 
-        # Patch get_default_paths to point to tmp ideas_dir
+        # Patch get_default_paths in both the legacy shim and the new command module
+        import services.cli.commands.revise as revise_cmd
         from services.ingestion import cli
 
         orig_paths = cli.get_default_paths()
-        monkeypatch.setattr(
-            cli,
-            "get_default_paths",
-            lambda: (orig_paths[0], orig_paths[1], orig_paths[2], ideas_root),
-        )
+
+        def _paths():
+            return (orig_paths[0], orig_paths[1], orig_paths[2], ideas_root)
+
+        monkeypatch.setattr(cli, "get_default_paths", _paths)
+        monkeypatch.setattr(revise_cmd, "get_default_paths", _paths)
 
         exit_code = handle_revise_command(args)
         assert exit_code == 0
@@ -242,16 +244,19 @@ def test_cli_revise_with_syndication(monkeypatch: pytest.MonkeyPatch) -> None:
             ]
         )
 
+        import services.cli.commands.revise as revise_cmd
         from services.ingestion import cli
 
         orig_paths = cli.get_default_paths()
-        monkeypatch.setattr(
-            cli,
-            "get_default_paths",
-            lambda: (orig_paths[0], orig_paths[1], orig_paths[2], ideas_root),
-        )
+
+        def _paths():
+            return (orig_paths[0], orig_paths[1], orig_paths[2], ideas_root)
+
+        monkeypatch.setattr(cli, "get_default_paths", _paths)
+        monkeypatch.setattr(revise_cmd, "get_default_paths", _paths)
 
         exit_code = handle_revise_command(args)
+
         assert exit_code == 0
 
         # Verify blog and linkedin posts exist and contain the revised takeaway

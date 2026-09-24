@@ -35,10 +35,16 @@ def test_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         encoding="utf-8",
     )
 
-    monkeypatch.setattr(
-        "services.ingestion.cli.get_default_paths",
-        lambda: (catalog_path, snapshot_path, tmp_path / "inbox.md", ideas_dir),
-    )
+    def _paths():
+        return catalog_path, snapshot_path, tmp_path / "inbox.md", ideas_dir
+
+    monkeypatch.setattr("services.cli._shared.get_default_paths", _paths)
+    monkeypatch.setattr("services.cli.commands.enrich.get_default_paths", _paths)
+    monkeypatch.setattr("services.cli.commands.typeset.get_default_paths", _paths)
+    monkeypatch.setattr("services.cli.commands.publishing.get_default_paths", _paths)
+    monkeypatch.setattr("services.cli.commands.ingest.get_default_paths", _paths)
+    # Legacy shim compat (kept for any test that patches the old location)
+    monkeypatch.setattr("services.ingestion.cli.get_default_paths", _paths)
 
     # Provision idea-001
     rec = IdeaRecord(id="idea-001", title="Test Title", synopsis="Test Synopsis for idea")

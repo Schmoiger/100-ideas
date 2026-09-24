@@ -130,15 +130,16 @@ def test_cli_mark_edited_and_unmark(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     meta_file = p_dir / "meta.yaml"
 
     # Monkeypatch get_default_paths to point to tmp_path
-    monkeypatch.setattr(
-        "services.ingestion.cli.get_default_paths",
-        lambda: (
+    def _paths():
+        return (
             tmp_path / "100-ideas.md",
             tmp_path / "snapshot.md",
             tmp_path / "inbox.md",
             tmp_path,
-        ),
-    )
+        )
+
+    monkeypatch.setattr("services.ingestion.cli.get_default_paths", _paths)
+    monkeypatch.setattr("services.cli.commands.review.get_default_paths", _paths)
 
     # Mark as edited
     args = argparse.Namespace(idea="idea-005", notes="Polished intro section", unmark=False)
