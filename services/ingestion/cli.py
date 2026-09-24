@@ -267,7 +267,129 @@ def build_parser() -> argparse.ArgumentParser:
         help="Force re-generation of existing research or visual assets",
     )
 
+    # Subcommand: draft (Book mode drafting)
+    draft_p = subparsers.add_parser(
+        "draft",
+        help="Draft publication-ready book chapter for an idea (REQ-BOK-001, REQ-BOK-002)",
+    )
+    draft_p.add_argument(
+        "--idea",
+        "-i",
+        required=True,
+        help="Idea ID (e.g. idea-001) or 1-based index (e.g. 1)",
+    )
+    draft_p.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Force re-drafting even if chapter.md already exists",
+    )
+
+    # Subcommand: typeset (Typst PDF compilation)
+    typeset_p = subparsers.add_parser(
+        "typeset",
+        help="Compile chapter or aggregated book to publication-grade PDF via Typst (REQ-BOK-003, REQ-BOK-004, REQ-BOK-005)",
+    )
+    typeset_p.add_argument(
+        "--idea",
+        "-i",
+        help="Idea ID (e.g. idea-001) or 1-based index to compile single chapter PDF",
+    )
+    typeset_p.add_argument(
+        "--all",
+        "-a",
+        action="store_true",
+        help="Compile aggregated multi-chapter book volume with TOC",
+    )
+    typeset_p.add_argument(
+        "--output-dir",
+        "-o",
+        help="Custom output directory for compiled book (default: artefacts/content/book)",
+    )
+    typeset_p.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Force re-compilation even if PDF already exists",
+    )
+
     return parser
+
+
+def handle_draft_command(args: argparse.Namespace) -> int:
+    """Handle `draft` subcommand: draft book chapter adhering to author persona."""
+    from services.typesetting.pipeline import process_book_chapter
+
+    repo_root: Path = Path(__file__).resolve().parent.parent.parent
+    catalog_path, snapshot_path, _, ideas_dir = get_default_paths()
+
+    try:
+        results = process_book_chapter(
+            idea_id_or_num=args.idea,
+            ideas_root=ideas_dir,
+            repo_root=repo_root,
+            catalog_path=catalog_path,
+            snapshot_path=snapshot_path,
+            do_draft=True,
+            do_compile=False,
+            force=args.force,
+        )
+        status_str: str = "generated" if results.get("draft_generated") else "cached (skipped)"
+        print(f"Drafting completed for [{results['idea_id']}] '{results['title']}':")
+        print(f"  Chapter Draft: {results['chapter_md']} [{status_str}]")
+        return 0
+    except Exception as exc:
+        print(f"Drafting error: {exc}", file=sys.stderr)
+        return 1
+
+
+def handle_typeset_command(args: argparse.Namespace) -> int:
+    """Handle `typeset` subcommand: compile single chapter or aggregated book via Typst."""
+    from services.typesetting.pipeline import process_aggregated_book, process_book_chapter
+
+    repo_root: Path = Path(__file__).resolve().parent.parent.parent
+    catalog_path, snapshot_path, _, ideas_dir = get_default_paths()
+    book_output_dir: Path = (
+        Path(args.output_dir).resolve()
+        if args.output_dir
+        else repo_root / "artefacts" / "content" / "book"
+    )
+
+    if not args.idea and not args.all:
+        print("Error: Specify either --idea <id> or --all.", file=sys.stderr)
+        return 1
+
+    try:
+        if args.idea:
+            results = process_book_chapter(
+                idea_id_or_num=args.idea,
+                ideas_root=ideas_dir,
+                repo_root=repo_root,
+                catalog_path=catalog_path,
+                snapshot_path=snapshot_path,
+                do_draft=True,
+                do_compile=True,
+                force=args.force,
+            )
+            status_str: str = "compiled" if results.get("pdf_compiled") else "cached (skipped)"
+            print(f"Typesetting completed for [{results['idea_id']}] '{results['title']}':")
+            print(f"  Chapter PDF: {results['chapter_pdf']} [{status_str}]")
+
+        if args.all:
+            res_book = process_aggregated_book(
+                ideas_root=ideas_dir,
+                repo_root=repo_root,
+                output_dir=book_output_dir,
+                force=args.force,
+            )
+            print("Aggregated Book Compilation completed:")
+            print(f"  Total Chapters Included: {res_book['total_chapters']}")
+            print(f"  Publication PDF:         {res_book['book_pdf']}")
+
+        return 0
+    except Exception as exc:
+        print(f"Typesetting error: {exc}", file=sys.stderr)
+        return 1
 
 
 def handle_enrich_command(args: argparse.Namespace) -> int:
@@ -332,6 +454,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return handle_add_command(args)
     if args.subcommand == "enrich":
         return handle_enrich_command(args)
+    if args.subcommand == "draft":
+        return handle_draft_command(args)
+    if args.subcommand == "typeset":
+        return handle_typeset_command(args)
 
     parser.print_help()
     return 1
