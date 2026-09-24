@@ -1,8 +1,8 @@
 # Hive Mind: Framework Reference
 
 **Document Status**: Draft  
-**Version**: 0.6.0  
-**Last Updated**: 15 September 2026  
+**Version**: 0.7.0  
+**Last Updated**: 24 September 2026  
 **Word Count**: ~8,500 words  
 **Reading Time**: ~35 minutes
 
@@ -329,6 +329,7 @@ Canonical skills in `context/skills/` are compiled into runtime projections (e.g
 | `database-designer.md` | Database schema design, relationships, and migrations |
 | `documentation.md` | User-facing documentation, API references, and guide generation |
 | `functional-tester.md` | Detroit-school TDD: intent-first, tests before implementation |
+| `gemini-sdk.md` | `google-genai` Python SDK patterns, structured outputs with Pydantic, Gemini context caching, Imagen 3, and token burn guard rails |
 | `git-subrepo-operations.md` | Procedural guidance for inspecting, pulling, cloning, and gated pushing with git-subrepo |
 | `intent-fidelity.md` | Ensures business intent is faithfully captured in requirements, TDD, and tests |
 | `mermaid-authoring.md` | Mermaid diagram syntax, layout constraints, and semantic guidance |
@@ -1390,5 +1391,6 @@ Every workflow YAML includes a `state_recovery` section listing the files an orc
 | 0.3.0   | 2026-04-13 | Editorial | Versioning policy: `MAJOR.MINOR.PATCH` per [Semantic Versioning 2.0.0](https://semver.org/) (section 8.2); draft documents stay on major version `0`; revision table uses three-part versions. |
 | 0.5.0   | 2026-09-12 | Editorial | Document skills layer in framework topology, source-of-truth tiers, and rules/standards/skills split. |
 | 0.6.0   | 2026-09-15 | AS        | Restate rules/skills/standards split by verification mechanism and runtime projection: rules verified at zero token cost by code; skills verified by LLM-as-a-judge; standards serve as judge rubrics. Update rule overhead to ~1,300 tokens (<1% of 128k–200k windows). Consolidate `british-english.md` + `EARS-notation-requirements.md` into `tech-writing.md`. Add skills catalogue with `bootstrap-workflow.md` and `intent-fidelity.md`. Document that all generated adapter projections are now gitignored. |
+| 0.7.0   | 2026-09-24 | AS        | Add `gemini-sdk.md` skill covering modern `google-genai` Python SDK patterns, structured outputs with Pydantic, Gemini context caching, Imagen 3, and token burn guard rails. |
 
 <!-- typst-skip-end -->

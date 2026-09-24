@@ -338,6 +338,22 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Force overwrite of human-edited assets even if marked human_modified (TASK-018)",
     )
+    enrich_p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Calculate prompt token count and projected USD cost without firing live API requests (TASK-020)",
+    )
+    enrich_p.add_argument(
+        "--force-llm",
+        action="store_true",
+        help="Bypass input fingerprint cache to force live LLM re-generation (TASK-020)",
+    )
+    enrich_p.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Bypass interactive batch confirmation prompt (TASK-020)",
+    )
 
     # Subcommand: draft (Book mode drafting)
     draft_p = subparsers.add_parser(
@@ -365,6 +381,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--overwrite-manual",
         action="store_true",
         help="Force overwrite of human-edited chapter drafts even if marked human_modified (TASK-018)",
+    )
+    draft_p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Calculate prompt token count and projected USD cost without firing live API requests (TASK-020)",
+    )
+    draft_p.add_argument(
+        "--force-llm",
+        action="store_true",
+        help="Bypass input fingerprint cache to force live LLM re-generation (TASK-020)",
+    )
+    draft_p.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Bypass interactive batch confirmation prompt (TASK-020)",
     )
 
     # Subcommand: typeset (Typst PDF compilation)
@@ -412,6 +444,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--overwrite-manual",
         action="store_true",
         help="Force overwrite of human-edited assets during typesetting (TASK-018)",
+    )
+    typeset_p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Calculate prompt token count and projected USD cost without firing live API requests (TASK-020)",
+    )
+    typeset_p.add_argument(
+        "--force-llm",
+        action="store_true",
+        help="Bypass input fingerprint cache to force live LLM re-generation (TASK-020)",
+    )
+    typeset_p.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Bypass interactive batch confirmation prompt (TASK-020)",
     )
 
     # Subcommand: blog (Hostinger blog post drafting)
@@ -508,6 +556,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--overwrite-manual",
         action="store_true",
         help="Force overwrite of human-edited assets throughout publishing pipeline (TASK-018)",
+    )
+    pipeline_p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Calculate prompt token count and projected USD cost without firing live API requests (TASK-020)",
+    )
+    pipeline_p.add_argument(
+        "--force-llm",
+        action="store_true",
+        help="Bypass input fingerprint cache to force live LLM re-generation (TASK-020)",
+    )
+    pipeline_p.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Bypass interactive batch confirmation prompt (TASK-020)",
     )
 
     # Subcommand: review (Editorial quality gate & voice fidelity)
@@ -623,6 +687,40 @@ def resolve_ideas_to_process(idea_arg: str | None, all_arg: bool, ideas_dir: Pat
     return []
 
 
+def confirm_batch_execution(
+    ideas_to_process: list[str],
+    operation_name: str,
+    model_name: str = "gemini-2.5-flash",
+    yes: bool = False,
+) -> bool:
+    """Prompt user before processing multiple ideas in batch unless --yes is passed.
+
+    Enforces Guard Rail 6 (Interactive Batch Confirmation).
+    """
+    if len(ideas_to_process) <= 1 or yes:
+        return True
+
+    from services.llm.governance import estimate_cost
+
+    tokens_per_idea = 4000 if "pipeline" in operation_name else 2500
+    total_tokens = len(ideas_to_process) * tokens_per_idea
+    est_cost = estimate_cost(
+        model=model_name,
+        prompt_tokens=total_tokens,
+        completion_tokens=len(ideas_to_process) * 1000,
+    )
+
+    prompt_msg = (
+        f"Ready to process {len(ideas_to_process)} ideas (~{total_tokens // 1000}k tokens, "
+        f"est. ${est_cost:.2f} USD). Proceed? [y/N]: "
+    )
+    try:
+        ans = input(prompt_msg).strip().lower()
+        return ans in ("y", "yes")
+    except (EOFError, KeyboardInterrupt):
+        return False
+
+
 def handle_draft_command(args: argparse.Namespace) -> int:
     """Handle `draft` subcommand: draft book chapter adhering to author persona."""
     from services.typesetting.pipeline import process_book_chapter
@@ -639,6 +737,15 @@ def handle_draft_command(args: argparse.Namespace) -> int:
         print("No ideas found to process.", file=sys.stderr)
         return 1
 
+    if not confirm_batch_execution(
+        ideas_to_process,
+        "drafting",
+        model_name="gemini-2.5-pro",
+        yes=getattr(args, "yes", False),
+    ):
+        print("Batch execution cancelled by user.")
+        return 0
+
     total: int = len(ideas_to_process)
     for idx, idea_target in enumerate(ideas_to_process, start=1):
         try:
@@ -652,6 +759,8 @@ def handle_draft_command(args: argparse.Namespace) -> int:
                 do_draft=True,
                 do_compile=False,
                 force=args.force,
+                force_llm=getattr(args, "force_llm", False),
+                dry_run=getattr(args, "dry_run", False),
                 overwrite_manual=getattr(args, "overwrite_manual", False),
             )
             status_str: str = "generated" if results.get("draft_generated") else "cached (skipped)"
@@ -708,6 +817,9 @@ def handle_typeset_command(args: argparse.Namespace) -> int:
                 do_draft=True,
                 do_compile=True,
                 force=args.force,
+                force_llm=getattr(args, "force_llm", False),
+                dry_run=getattr(args, "dry_run", False),
+                overwrite_manual=getattr(args, "overwrite_manual", False),
             )
             status_str: str = "compiled" if results.get("pdf_compiled") else "cached (skipped)"
             print(f"Typesetting completed for [{results['idea_id']}] '{results['title']}':")
@@ -778,6 +890,15 @@ def handle_enrich_command(args: argparse.Namespace) -> int:
         print("No ideas found to process.", file=sys.stderr)
         return 1
 
+    if not confirm_batch_execution(
+        ideas_to_process,
+        "enrichment",
+        model_name="gemini-2.5-flash",
+        yes=getattr(args, "yes", False),
+    ):
+        print("Batch execution cancelled by user.")
+        return 0
+
     # Default to running both research and visuals if neither flag is explicitly set
     do_research: bool = True
     do_visuals: bool = True
@@ -801,6 +922,8 @@ def handle_enrich_command(args: argparse.Namespace) -> int:
                 regenerate_image=args.regenerate_image,
                 refinement=args.refinement,
                 force=args.force,
+                force_llm=getattr(args, "force_llm", False),
+                dry_run=getattr(args, "dry_run", False),
                 overwrite_manual=getattr(args, "overwrite_manual", False),
             )
             print(f"Enrichment completed for [{results['idea_id']}] '{results['title']}':")
@@ -927,6 +1050,15 @@ def handle_pipeline_command(args: argparse.Namespace) -> int:
         print("No ideas found to process.", file=sys.stderr)
         return 1
 
+    if not confirm_batch_execution(
+        ideas_to_process,
+        "pipeline",
+        model_name="gemini-2.5-pro",
+        yes=getattr(args, "yes", False),
+    ):
+        print("Batch execution cancelled by user.")
+        return 0
+
     total: int = len(ideas_to_process)
     for idx, idea_target in enumerate(ideas_to_process, start=1):
         print("\n==========================================")
@@ -934,6 +1066,8 @@ def handle_pipeline_command(args: argparse.Namespace) -> int:
         print("==========================================")
         try:
             ow_manual = getattr(args, "overwrite_manual", False)
+            f_llm = getattr(args, "force_llm", False)
+            d_run = getattr(args, "dry_run", False)
             # 1. Enrich
             print("  Phase 1/5: Research and Visual Enrichment...")
             enrich_res = enrich_idea(
@@ -945,6 +1079,8 @@ def handle_pipeline_command(args: argparse.Namespace) -> int:
                 do_research=True,
                 do_visuals=True,
                 force=args.force,
+                force_llm=f_llm,
+                dry_run=d_run,
                 overwrite_manual=ow_manual,
             )
             # 2. Draft book chapter
@@ -958,6 +1094,8 @@ def handle_pipeline_command(args: argparse.Namespace) -> int:
                 do_draft=True,
                 do_compile=False,
                 force=args.force,
+                force_llm=f_llm,
+                dry_run=d_run,
                 overwrite_manual=ow_manual,
             )
             # 3. Typeset single chapter PDF

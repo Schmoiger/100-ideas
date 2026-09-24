@@ -36,7 +36,7 @@
 | TASK-017 | high | completed | TASK-015 | Implement multi-volume book mapping configuration (`config/volumes.yaml`) and compilation |
 | TASK-018 | high | completed | TASK-015 | Implement state machine and manual edit protection safeguards (`human_modified`) in `meta.yaml` |
 | TASK-019 | medium | completed | TASK-018 | Implement interactive agentic chat revision loop and hierarchical channel syndication (SSOT) |
-| TASK-020 | high | pending | TASK-015 | Implement live Gemini Python SDK integration, prompt caching, and `gemini-sdk` skill |
+| TASK-020 | high | completed | TASK-015 | Implement live Gemini Python SDK integration, prompt caching, and `gemini-sdk` skill |
 
 ---
 
@@ -158,7 +158,7 @@
   - Refinement commands (`ideas revise`) support targeted section updates without rewriting entire documents, with automated metadata audit logging (`revisions`), `--syndicate`, and `--typeset` flags.
 
 ### TASK-020: Live Gemini Python SDK Integration, Token Guard Rails & `gemini-sdk` Skill
-- **Status**: Pending
+- **Status**: Completed
 - **Architecture Reference**: [review-continuous-publishing.md §6](file:///Users/avi/Repos/100-ideas/artefacts/architecture/review-continuous-publishing.md#6-live-gemini-sdk-integration-google-genai--token-governance) (Resolves DEF-004)
 - **Description**: Author the canonical `gemini-sdk` skill (`context/skills/gemini-sdk.md` and projected `.agents/skills/gemini-sdk/SKILL.md`) providing procedural guidance for modern `google-genai` Python SDK patterns (client initialization, Pydantic structured output, Gemini Context Caching, Imagen 3, and token telemetry). Implement robust token burn guard rails and circuit breakers across `services/enrichment/` and `services/typesetting/` to prevent runaway API spend during live execution. Integrate `google-genai` into `services/enrichment/researcher.py` and `services/typesetting/drafter.py` using tiered models (`gemini-2.5-flash`, `gemini-2.5-pro`, `imagen-3.0`).
 - **Token Burn Guard Rails**:
@@ -178,5 +178,32 @@
   - Token telemetry (cached tokens, prompt tokens, completion tokens, latency, cost estimate) recorded in `meta.yaml`.
   - Offline fallback / mock mode retained for fast local testing.
 
+### TASK-021: Boundary & SSOT Syndication Wiring Cleanup (Phase 1)
+- **Status**: Backlog
+- **Architecture Reference**: [tech-review.md §3](file:///Users/avi/Repos/100-ideas/artefacts/build/tech-review.md#3-detailed-findings--cleanup-opportunities) (Resolves Finding 2 & Finding 3)
+- **Description**: Clean up cross-domain layering and SSOT syndication wiring. Promote dynamic inline imports in `services/publishing/drafter.py` and `services/publishing/social.py` to module level. Relocate `load_or_provision_idea` from `services.enrichment.pipeline` to `services.ingestion.provisioner` to eliminate improper dependency from typesetting/publishing onto enrichment. Add explicit `"syndicated_from"` telemetry and CLI fallback warning when `book/chapter.md` is absent.
+- **Acceptance Criteria**:
+  - Syndication functions imported cleanly at top of module in `services/publishing/`.
+  - `load_or_provision_idea` located in `services.ingestion.provisioner`; callers updated.
+  - `process_blog_and_social` returns `"syndicated_from"` metadata and CLI warns if falling back to raw synopsis.
+  - All existing unit tests pass without regression.
 
+### TASK-022: CLI Modularisation & Test Expansion (Phase 2)
+- **Status**: Backlog
+- **Architecture Reference**: [tech-review.md §3](file:///Users/avi/Repos/100-ideas/artefacts/build/tech-review.md#3-detailed-findings--cleanup-opportunities) (Resolves Finding 1)
+- **Description**: Decompose the 1,355-line monolithic CLI dispatcher `services/ingestion/cli.py` into a dedicated `services/cli/` package with modular command handlers (`commands/ingest.py`, `commands/enrich.py`, `commands/typeset.py`, `commands/publishing.py`, `commands/review.py`, `commands/revise.py`). Invert the dependency so `cli` imports services rather than `services.ingestion` importing all downstream services. Add CLI command invocation unit tests.
+- **Acceptance Criteria**:
+  - `ideas` script entry point in `pyproject.toml` points to `services.cli.main:main`.
+  - Subcommands organised cleanly under `services/cli/commands/`.
+  - Unit tests added for CLI dispatching, raising CLI test coverage from 56% to >90%.
+  - Zero regression in CLI user experience or argument parsing.
 
+### TASK-023: Data Model & Type Normalisation (Phase 3)
+- **Status**: Backlog
+- **Architecture Reference**: [tech-review.md §3](file:///Users/avi/Repos/100-ideas/artefacts/build/tech-review.md#3-detailed-findings--cleanup-opportunities) (Resolves Finding 4, 5 & 6)
+- **Description**: Unify data modelling around Pydantic v2 `BaseModel`. Refactor `IdeaRecord` to eliminate manual `to_meta_dict()` / `from_meta_dict()` boilerplate (saving ~85 lines). Introduce typed models for `editorial_quality`, `assets`, and `token_telemetry`. Introduce `LifecycleStage(str, Enum)` and `ReviewStatus(str, Enum)`. Consolidate word counting and slugification in `services/common/text.py`.
+- **Acceptance Criteria**:
+  - `IdeaRecord` converted to Pydantic v2 `BaseModel` with validated nested models.
+  - Lifecycle stages use formal `LifecycleStage` enum across `state.py`, `models.py`, and `quality_gate.py`.
+  - Duplicate string utility functions consolidated in `services/common/text.py`.
+  - Full test suite passes.

@@ -1,8 +1,8 @@
 # Hive Mind: Designing an Orchestration Framework for Multi-Agent Software Delivery
 
 **Document Status**: Draft  
-**Version**: 0.5.0  
-**Last Updated**: 15 September 2026  
+**Version**: 0.6.0  
+**Last Updated**: 24 September 2026  
 **Word Count**: ~3,500 words  
 **Reading Time**: ~15 minutes
 
@@ -316,5 +316,6 @@ The framework's design principles are not novel; they adapt ideas from distribut
 | 0.1.0   | 2026-04-13 | Initial   | First publication: coordination problem framing, design principles, layer model, execution model, source-of-truth hierarchy, rules/standards/skills split, agent roster, workflow architecture, templates and validators, limitations, further reading. |
 | 0.4.0   | 2026-09-12 | Editorial | Document skills layer in design principles, layer model, source-of-truth hierarchy, and the rules/standards/skills split section. |
 | 0.5.0   | 2026-09-15 | AS        | Restate rules/skills/standards split by verification mechanism: rules verified at zero token cost by code; skills verified by LLM-as-a-judge; standards serve as judge rubrics. Update rule overhead to ~1,300 tokens (<1% of 128k–200k windows). Add `python-scripting` skill as third-agent example. Update `adapter_drift.py` description to reflect that all generated projections are gitignored. |
+| 0.6.0   | 2026-09-24 | AS        | Introduce `gemini-sdk` skill for live GenAI SDK integration with Gemini context caching and token burn guard rails. |
 
 <!-- typst-skip-end -->
