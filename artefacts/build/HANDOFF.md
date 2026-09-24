@@ -1,10 +1,10 @@
-# Handoff: Continuous Publishing Architecture Review (§3.1 - §3.7)
+# Handoff: Codebase Review & Cleanup Architecture Report
 
-**From**: @solution-architect
-**To**: @python-coder
+**From**: @tech-lead
+**To**: @orchestrator
 **Date**: 24/09/2026
 **Workflow**: build
-**Phase**: architecture-review
+**Phase**: tech-review
 **Status**: ready
 
 ---
@@ -13,14 +13,15 @@
 
 | Agent | Scope | Role |
 |-------|-------|------|
-| @solution-architect | `artefacts/architecture/` | Architecture review, data model, volume mapping specification |
+| @tech-lead | `artefacts/build/` | System review, wiring smoke-check, cleanup roadmap |
+| @orchestrator | `artefacts/build/` | Task scheduling, workflow coordination |
 | @python-coder | `services/` | Subsystem implementation and refactoring |
 
 ---
 
 ## Summary
 
-Completed comprehensive Solution Architect Review (TASK-015) addressing the two fundamental assumptions (static 100-idea catalog and one-shot linear drafting). Delivered formal review report (`artefacts/architecture/review-continuous-publishing.md`), updated system architecture (`artefacts/architecture/architecture.md`), and updated conceptual data model (`artefacts/architecture/data-model.md`). Defined continuous intake lifecycle with `inbox-archive.md`, decoupled canonical ID scheme, multi-volume configuration (`config/volumes.yaml`), human-in-the-loop state machine in `meta.yaml` with manual edit safeguards (`human_modified: true`), live Gemini SDK (`google-genai`) integration with context caching, and Single Source of Truth (SSOT) channel syndication.
+Completed comprehensive Technical Lead Codebase Review and Cleanup Architecture Report (`artefacts/build/tech-review.md`). Verified end-to-end user-facing call chains from CLI entry points to backend effects across all subsystems. Identified 7 specific structural findings covering monolithic CLI dispatching, cross-domain coupling in `load_or_provision_idea`, SSOT syndication inline imports and silent fallback, data modelling heterogeneity, string literal lifecycle states, duplicate string utilities, and tooling lint drift. Formulated a 4-phase cleanup roadmap with backlog tasks TASK-021 through TASK-023. Gate Decision: **APPROVED (with prioritized cleanup backlog)**.
 
 ---
 
@@ -42,12 +43,16 @@ Completed comprehensive Solution Architect Review (TASK-015) addressing the two 
 
 | ID | Task | Priority | Depends On |
 |----|------|----------|------------|
-| - | All planned tasks up to TASK-020 complete | - | - |
+| TASK-021 | Boundary & SSOT Syndication Wiring Cleanup (Phase 1) | P1 | TASK-020 |
+| TASK-022 | CLI Modularisation & Test Expansion (Phase 2) | P2 | TASK-021 |
+| TASK-023 | Data Model & Type Normalisation (Phase 3) | P3 | TASK-022 |
 
 ---
 
 ## Artefacts
 
+- **Tech Review**: `artefacts/build/tech-review.md`
+- **Tasks Backlog**: `artefacts/build/tasks.md`
 - **Requirements**: `artefacts/product/requirements.md`
 - **Architecture**: `artefacts/architecture/architecture.md`
 - **Revision Protocol**: `artefacts/architecture/chat-revision-protocol.md`
