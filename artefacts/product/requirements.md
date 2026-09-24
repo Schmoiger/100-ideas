@@ -133,7 +133,7 @@ The Harness Extension subsystem defines the governance rules for assessing exist
 | ID | Category | Requirement | Target |
 |---|---|---|---|
 | NFR-QLT-001 | Voice Fidelity | Alignment of book chapters to `context/persona/author.md` | 100% compliance with non-preamble, information density, and British English rules |
-| NFR-QLT-002 | Voice Fidelity | Alignment of blog posts to `context/persona/opinionated-blogger.md` | 100% compliance with hook-first structure and 400-800 word target length |
+| NFR-QLT-002 | Voice Fidelity | Alignment of blog posts to `context/persona/author.md` | 100% compliance with punch over preamble, bold takeaways, and 400-800 word target length |
 | NFR-QLT-003 | Visual Variety | Editorial illustration style differentiation | Prompts dynamically vary composition, art medium, and metaphor across ideas |
 | NFR-QLT-004 | Code & Text Standards | Documentation and prose conventions | British English spelling (`-ise`, `-our`, `artefact`) and `DD/MM/YYYY` dates |
 
