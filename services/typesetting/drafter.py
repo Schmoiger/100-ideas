@@ -151,20 +151,31 @@ def draft_book_chapter(
     idea: IdeaRecord,
     ideas_root: Path,
     force: bool = False,
+    overwrite_manual: bool = False,
     chapter_num: int | None = None,
 ) -> tuple[Path, bool]:
     """Generate book chapter manuscript and write to artefacts/content/ideas/{id}/book/chapter.md.
 
     Handles REQ-BOK-001 and REQ-BOK-002:
     Returns (chapter_file_path, was_generated).
+    Refuses to overwrite if human_modified=True without overwrite_manual=True.
     """
+    from services.ingestion.safeguards import check_manual_edit_safeguard
+
     idea_dir: Path = ideas_root / idea.id
     book_dir: Path = idea_dir / "book"
     book_dir.mkdir(parents=True, exist_ok=True)
 
     chapter_file: Path = book_dir / "chapter.md"
-    if chapter_file.is_file() and not force:
-        return chapter_file, False
+    if chapter_file.is_file():
+        if not force and not overwrite_manual:
+            return chapter_file, False
+        check_manual_edit_safeguard(
+            target_file=chapter_file,
+            idea=idea,
+            force=force,
+            overwrite_manual=overwrite_manual,
+        )
 
     # Read research notes if present
     notes_file: Path = idea_dir / "research" / "notes.md"
@@ -205,6 +216,8 @@ def draft_book_chapter(
             meta_data: Any = yaml.safe_load(meta_file.read_text(encoding="utf-8"))
             if isinstance(meta_data, dict):
                 meta_data["chapter_draft"] = "book/chapter.md"
+                if meta_data.get("stage") in ("raw", "research_ready", "draft_in_progress"):
+                    meta_data["stage"] = "human_review"
                 temp_meta: Path = idea_dir / ".meta.yaml.tmp"
                 temp_meta.write_text(
                     yaml.safe_dump(meta_data, sort_keys=False, allow_unicode=True), encoding="utf-8"

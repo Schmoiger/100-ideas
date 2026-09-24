@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+import yaml
+
 from services.ingestion.dedup import check_duplicate
 from services.ingestion.models import IdeaRecord
 from services.ingestion.parsers import (
@@ -331,6 +333,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Force re-generation of existing research or visual assets",
     )
+    enrich_p.add_argument(
+        "--overwrite-manual",
+        action="store_true",
+        help="Force overwrite of human-edited assets even if marked human_modified (TASK-018)",
+    )
 
     # Subcommand: draft (Book mode drafting)
     draft_p = subparsers.add_parser(
@@ -353,6 +360,11 @@ def build_parser() -> argparse.ArgumentParser:
         "-f",
         action="store_true",
         help="Force re-drafting even if chapter.md already exists",
+    )
+    draft_p.add_argument(
+        "--overwrite-manual",
+        action="store_true",
+        help="Force overwrite of human-edited chapter drafts even if marked human_modified (TASK-018)",
     )
 
     # Subcommand: typeset (Typst PDF compilation)
@@ -396,6 +408,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Force re-compilation even if PDF already exists",
     )
+    typeset_p.add_argument(
+        "--overwrite-manual",
+        action="store_true",
+        help="Force overwrite of human-edited assets during typesetting (TASK-018)",
+    )
 
     # Subcommand: blog (Hostinger blog post drafting)
     blog_p = subparsers.add_parser(
@@ -425,6 +442,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Force re-generation even if blog post already exists",
     )
+    blog_p.add_argument(
+        "--overwrite-manual",
+        action="store_true",
+        help="Force overwrite of human-edited blog drafts even if marked human_modified (TASK-018)",
+    )
 
     # Subcommand: social (LinkedIn companion post generation)
     social_p = subparsers.add_parser(
@@ -447,6 +469,11 @@ def build_parser() -> argparse.ArgumentParser:
         "-f",
         action="store_true",
         help="Force re-generation even if social post already exists",
+    )
+    social_p.add_argument(
+        "--overwrite-manual",
+        action="store_true",
+        help="Force overwrite of human-edited social drafts even if marked human_modified (TASK-018)",
     )
 
     # Subcommand: pipeline (End-to-end execution: enrich -> draft -> typeset -> blog -> social)
@@ -476,6 +503,54 @@ def build_parser() -> argparse.ArgumentParser:
         "-f",
         action="store_true",
         help="Force re-generation of all pipeline artefacts",
+    )
+    pipeline_p.add_argument(
+        "--overwrite-manual",
+        action="store_true",
+        help="Force overwrite of human-edited assets throughout publishing pipeline (TASK-018)",
+    )
+
+    # Subcommand: review (Editorial quality gate & voice fidelity)
+    review_p = subparsers.add_parser(
+        "review",
+        help="Evaluate editorial quality gate and voice fidelity against author persona (TASK-018)",
+    )
+    review_p.add_argument(
+        "--idea",
+        "-i",
+        help="Idea ID (e.g. idea-001) or 1-based index",
+    )
+    review_p.add_argument(
+        "--all",
+        "-a",
+        action="store_true",
+        help="Evaluate all provisioned ideas sequentially in batch",
+    )
+    review_p.add_argument(
+        "--reviewer",
+        default="Avi",
+        help="Reviewer identifier to record in editorial_quality metadata (default: Avi)",
+    )
+
+    # Subcommand: mark-edited (Human edit safeguard toggling)
+    mark_p = subparsers.add_parser(
+        "mark-edited",
+        help="Set human_modified safeguard on an idea to prevent automated overwriting (TASK-018)",
+    )
+    mark_p.add_argument(
+        "--idea",
+        "-i",
+        required=True,
+        help="Idea ID (e.g. idea-001) or 1-based index",
+    )
+    mark_p.add_argument(
+        "--notes",
+        help="Optional editorial notes describing the human modifications",
+    )
+    mark_p.add_argument(
+        "--unmark",
+        action="store_true",
+        help="Remove human_modified safeguard to re-enable automated overwriting",
     )
 
     return parser
@@ -523,6 +598,7 @@ def handle_draft_command(args: argparse.Namespace) -> int:
                 do_draft=True,
                 do_compile=False,
                 force=args.force,
+                overwrite_manual=getattr(args, "overwrite_manual", False),
             )
             status_str: str = "generated" if results.get("draft_generated") else "cached (skipped)"
             print(f"Drafting completed for [{results['idea_id']}] '{results['title']}':")
@@ -671,6 +747,7 @@ def handle_enrich_command(args: argparse.Namespace) -> int:
                 regenerate_image=args.regenerate_image,
                 refinement=args.refinement,
                 force=args.force,
+                overwrite_manual=getattr(args, "overwrite_manual", False),
             )
             print(f"Enrichment completed for [{results['idea_id']}] '{results['title']}':")
             if "research_notes" in results:
@@ -721,6 +798,7 @@ def handle_blog_command(args: argparse.Namespace) -> int:
                 do_social=False,
                 cms_platform=args.platform,
                 force=args.force,
+                overwrite_manual=getattr(args, "overwrite_manual", False),
             )
             status_str: str = "generated" if results.get("blog_generated") else "cached (skipped)"
             print(f"Blog Post completed for [{results['idea_id']}] '{results['title']}':")
@@ -764,6 +842,7 @@ def handle_social_command(args: argparse.Namespace) -> int:
                 do_blog=False,
                 do_social=True,
                 force=args.force,
+                overwrite_manual=getattr(args, "overwrite_manual", False),
             )
             status_str: str = "generated" if results.get("social_generated") else "cached (skipped)"
             print(f"Social Post completed for [{results['idea_id']}] '{results['title']}':")
@@ -800,6 +879,7 @@ def handle_pipeline_command(args: argparse.Namespace) -> int:
         print(f"[{idx}/{total}] Pipeline processing idea {idea_target}")
         print("==========================================")
         try:
+            ow_manual = getattr(args, "overwrite_manual", False)
             # 1. Enrich
             print("  Phase 1/5: Research and Visual Enrichment...")
             enrich_res = enrich_idea(
@@ -811,6 +891,7 @@ def handle_pipeline_command(args: argparse.Namespace) -> int:
                 do_research=True,
                 do_visuals=True,
                 force=args.force,
+                overwrite_manual=ow_manual,
             )
             # 2. Draft book chapter
             print("  Phase 2/5: Drafting Book Chapter...")
@@ -823,6 +904,7 @@ def handle_pipeline_command(args: argparse.Namespace) -> int:
                 do_draft=True,
                 do_compile=False,
                 force=args.force,
+                overwrite_manual=ow_manual,
             )
             # 3. Typeset single chapter PDF
             print("  Phase 3/5: Compiling Typst Chapter PDF...")
@@ -835,6 +917,7 @@ def handle_pipeline_command(args: argparse.Namespace) -> int:
                 do_draft=False,
                 do_compile=True,
                 force=args.force,
+                overwrite_manual=ow_manual,
             )
             # 4. Blog Post
             print("  Phase 4/5: Generating Blog Post...")
@@ -848,6 +931,7 @@ def handle_pipeline_command(args: argparse.Namespace) -> int:
                 do_social=False,
                 cms_platform=args.platform,
                 force=args.force,
+                overwrite_manual=ow_manual,
             )
             # 5. Social Post
             print("  Phase 5/5: Generating Social Companion Post...")
@@ -860,12 +944,94 @@ def handle_pipeline_command(args: argparse.Namespace) -> int:
                 do_blog=False,
                 do_social=True,
                 force=args.force,
+                overwrite_manual=ow_manual,
             )
             print(f"Completed pipeline for [{enrich_res['idea_id']}] '{enrich_res['title']}'.")
         except Exception as exc:
             print(f"Pipeline error on {idea_target}: {exc}", file=sys.stderr)
             return 1
 
+    return 0
+
+
+def handle_review_command(args: argparse.Namespace) -> int:
+    """Handle `review` subcommand: validate voice fidelity against author persona and enforce quality gate."""
+    from services.publishing.quality_gate import evaluate_idea_quality_gate
+
+    _, _, _, ideas_dir = get_default_paths()
+    if not args.idea and not args.all:
+        print("Error: Specify --idea <id> or --all", file=sys.stderr)
+        return 1
+
+    ideas_to_process = resolve_ideas_to_process(args.idea, args.all, ideas_dir)
+    if not ideas_to_process:
+        print("No ideas found to review.", file=sys.stderr)
+        return 1
+
+    reviewer = getattr(args, "reviewer", "Avi") or "Avi"
+    all_passed = True
+    for idea_target in ideas_to_process:
+        target_id = (
+            f"idea-{int(idea_target):03d}" if str(idea_target).isdigit() else str(idea_target)
+        )
+        idea_dir = ideas_dir / target_id
+        if not idea_dir.is_dir():
+            print(f"Idea directory not found: {idea_dir}", file=sys.stderr)
+            all_passed = False
+            continue
+
+        try:
+            report = evaluate_idea_quality_gate(idea_dir, reviewer=reviewer)
+            status_symbol = "✓ APPROVED" if report.passed else "✗ NEEDS REVISION"
+            print(
+                f"[{target_id}] Quality Gate: {status_symbol} (Fidelity Score: {report.score * 100:.0f}%)"
+            )
+            for metric, passed in report.metrics.items():
+                m_icon = "✓" if passed else "✗"
+                print(f"  {m_icon} {metric}")
+            if report.issues:
+                print("  Issues to address:")
+                for issue in report.issues:
+                    print(f"    - {issue}")
+            if not report.passed:
+                all_passed = False
+        except Exception as exc:
+            print(f"Error reviewing {target_id}: {exc}", file=sys.stderr)
+            all_passed = False
+
+    return 0 if all_passed else 1
+
+
+def handle_mark_edited_command(args: argparse.Namespace) -> int:
+    """Handle `mark-edited` subcommand: toggle human_modified safeguard on idea meta.yaml."""
+    from services.ingestion.provisioner import save_idea_meta
+
+    _, _, _, ideas_dir = get_default_paths()
+    if not args.idea:
+        print("Error: Specify --idea <id>", file=sys.stderr)
+        return 1
+
+    target_id = f"idea-{int(args.idea):03d}" if str(args.idea).isdigit() else str(args.idea)
+    idea_dir = ideas_dir / target_id
+    meta_file = idea_dir / "meta.yaml"
+    if not meta_file.is_file():
+        print(f"Error: meta.yaml not found at {meta_file}", file=sys.stderr)
+        return 1
+
+    unmark = getattr(args, "unmark", False)
+    notes = getattr(args, "notes", "") or ("Manual author edit recorded" if not unmark else "")
+
+    meta_dict = yaml.safe_load(meta_file.read_text(encoding="utf-8")) or {}
+    record = IdeaRecord.from_meta_dict(meta_dict)
+    record.mark_human_modified(not unmark, notes=notes)
+    save_idea_meta(record, idea_dir)
+
+    status_str = (
+        "unmarked (automated overwrites permitted)"
+        if unmark
+        else "flagged human_modified (protected from automated overwrites)"
+    )
+    print(f"[{record.id}] '{record.title}': {status_str}")
     return 0
 
 
@@ -894,6 +1060,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return handle_social_command(args)
     if args.subcommand == "pipeline":
         return handle_pipeline_command(args)
+    if args.subcommand == "review":
+        return handle_review_command(args)
+    if args.subcommand == "mark-edited":
+        return handle_mark_edited_command(args)
 
     parser.print_help()
     return 1
