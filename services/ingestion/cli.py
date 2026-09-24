@@ -243,8 +243,12 @@ def build_parser() -> argparse.ArgumentParser:
     enrich_p = subparsers.add_parser(
         "enrich", help="Enrich idea with empirical research synthesis and visual illustrations"
     )
+    enrich_p.add_argument("--idea", "-i", help="Idea ID (e.g. idea-001) or 1-based index (e.g. 1)")
     enrich_p.add_argument(
-        "--idea", "-i", required=True, help="Idea ID (e.g. idea-001) or 1-based index (e.g. 1)"
+        "--all",
+        "-a",
+        action="store_true",
+        help="Enrich all provisioned ideas sequentially in batch",
     )
     enrich_p.add_argument(
         "--research", "-r", action="store_true", help="Run research synthesis phase only"
@@ -275,8 +279,13 @@ def build_parser() -> argparse.ArgumentParser:
     draft_p.add_argument(
         "--idea",
         "-i",
-        required=True,
         help="Idea ID (e.g. idea-001) or 1-based index (e.g. 1)",
+    )
+    draft_p.add_argument(
+        "--all",
+        "-a",
+        action="store_true",
+        help="Draft book chapters for all provisioned ideas sequentially in batch",
     )
     draft_p.add_argument(
         "--force",
@@ -365,7 +374,49 @@ def build_parser() -> argparse.ArgumentParser:
         help="Force re-generation even if social post already exists",
     )
 
+    # Subcommand: pipeline (End-to-end execution: enrich -> draft -> typeset -> blog -> social)
+    pipeline_p = subparsers.add_parser(
+        "pipeline",
+        help="Run end-to-end publishing pipeline (enrich, draft, typeset, blog, social) for an idea or batch (REQ-ORC-001, REQ-ORC-004)",
+    )
+    pipeline_p.add_argument(
+        "--idea",
+        "-i",
+        help="Idea ID (e.g. idea-001) or 1-based index",
+    )
+    pipeline_p.add_argument(
+        "--all",
+        "-a",
+        action="store_true",
+        help="Run pipeline for all provisioned ideas sequentially in batch",
+    )
+    pipeline_p.add_argument(
+        "--platform",
+        "-p",
+        choices=["hostinger_static", "hostinger_wordpress", "hostinger_ghost"],
+        help="Target CMS publication platform adapter (default: hostinger_static)",
+    )
+    pipeline_p.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Force re-generation of all pipeline artefacts",
+    )
+
     return parser
+
+
+def resolve_ideas_to_process(idea_arg: str | None, all_arg: bool, ideas_dir: Path) -> list[str]:
+    """Resolve target idea identifier(s) from either --idea or --all."""
+    if idea_arg:
+        return [idea_arg]
+    if all_arg and ideas_dir.is_dir():
+        ideas: list[str] = []
+        for p in sorted(ideas_dir.iterdir()):
+            if p.is_dir() and p.name.startswith("idea-"):
+                ideas.append(p.name)
+        return ideas
+    return []
 
 
 def handle_draft_command(args: argparse.Namespace) -> int:
@@ -375,24 +426,37 @@ def handle_draft_command(args: argparse.Namespace) -> int:
     repo_root: Path = Path(__file__).resolve().parent.parent.parent
     catalog_path, snapshot_path, _, ideas_dir = get_default_paths()
 
-    try:
-        results = process_book_chapter(
-            idea_id_or_num=args.idea,
-            ideas_root=ideas_dir,
-            repo_root=repo_root,
-            catalog_path=catalog_path,
-            snapshot_path=snapshot_path,
-            do_draft=True,
-            do_compile=False,
-            force=args.force,
-        )
-        status_str: str = "generated" if results.get("draft_generated") else "cached (skipped)"
-        print(f"Drafting completed for [{results['idea_id']}] '{results['title']}':")
-        print(f"  Chapter Draft: {results['chapter_md']} [{status_str}]")
-        return 0
-    except Exception as exc:
-        print(f"Drafting error: {exc}", file=sys.stderr)
+    if not args.idea and not args.all:
+        print("Error: Specify --idea <id> or --all", file=sys.stderr)
         return 1
+
+    ideas_to_process: list[str] = resolve_ideas_to_process(args.idea, args.all, ideas_dir)
+    if not ideas_to_process:
+        print("No ideas found to process.", file=sys.stderr)
+        return 1
+
+    total: int = len(ideas_to_process)
+    for idx, idea_target in enumerate(ideas_to_process, start=1):
+        try:
+            print(f"[{idx}/{total}] Drafting book chapter for idea {idea_target}...")
+            results = process_book_chapter(
+                idea_id_or_num=idea_target,
+                ideas_root=ideas_dir,
+                repo_root=repo_root,
+                catalog_path=catalog_path,
+                snapshot_path=snapshot_path,
+                do_draft=True,
+                do_compile=False,
+                force=args.force,
+            )
+            status_str: str = "generated" if results.get("draft_generated") else "cached (skipped)"
+            print(f"Drafting completed for [{results['idea_id']}] '{results['title']}':")
+            print(f"  Chapter Draft: {results['chapter_md']} [{status_str}]")
+        except Exception as exc:
+            print(f"Drafting error on {idea_target}: {exc}", file=sys.stderr)
+            return 1
+
+    return 0
 
 
 def handle_typeset_command(args: argparse.Namespace) -> int:
@@ -452,6 +516,15 @@ def handle_enrich_command(args: argparse.Namespace) -> int:
     catalog_path, snapshot_path, _, ideas_dir = get_default_paths()
     resources_dir: Path = repo_root / "artefacts" / "content" / "resources"
 
+    if not args.idea and not args.all:
+        print("Error: Specify --idea <id> or --all", file=sys.stderr)
+        return 1
+
+    ideas_to_process: list[str] = resolve_ideas_to_process(args.idea, args.all, ideas_dir)
+    if not ideas_to_process:
+        print("No ideas found to process.", file=sys.stderr)
+        return 1
+
     # Default to running both research and visuals if neither flag is explicitly set
     do_research: bool = True
     do_visuals: bool = True
@@ -460,35 +533,39 @@ def handle_enrich_command(args: argparse.Namespace) -> int:
     elif args.visuals and not args.research:
         do_research = False
 
-    try:
-        results = enrich_idea(
-            idea_id_or_num=args.idea,
-            ideas_root=ideas_dir,
-            resources_root=resources_dir,
-            catalog_path=catalog_path,
-            snapshot_path=snapshot_path,
-            do_research=do_research,
-            do_visuals=do_visuals,
-            regenerate_image=args.regenerate_image,
-            refinement=args.refinement,
-            force=args.force,
-        )
-        print(f"Enrichment completed for [{results['idea_id']}] '{results['title']}':")
-        if "research_notes" in results:
-            status_str: str = (
-                "generated" if results.get("research_generated") else "cached (skipped)"
+    total: int = len(ideas_to_process)
+    for idx, idea_target in enumerate(ideas_to_process, start=1):
+        try:
+            print(f"[{idx}/{total}] Processing idea {idea_target}...")
+            results = enrich_idea(
+                idea_id_or_num=idea_target,
+                ideas_root=ideas_dir,
+                resources_root=resources_dir,
+                catalog_path=catalog_path,
+                snapshot_path=snapshot_path,
+                do_research=do_research,
+                do_visuals=do_visuals,
+                regenerate_image=args.regenerate_image,
+                refinement=args.refinement,
+                force=args.force,
             )
-            print(f"  Research Notes: {results['research_notes']} [{status_str}]")
-        if "illustration" in results:
-            status_str: str = (
-                "generated" if results.get("visuals_generated") else "cached (skipped)"
-            )
-            print(f"  Visual Prompt:  {results['visual_prompt']}")
-            print(f"  Illustration:   {results['illustration']} [{status_str}]")
-        return 0
-    except Exception as exc:
-        print(f"Enrichment error: {exc}", file=sys.stderr)
-        return 1
+            print(f"Enrichment completed for [{results['idea_id']}] '{results['title']}':")
+            if "research_notes" in results:
+                status_str: str = (
+                    "generated" if results.get("research_generated") else "cached (skipped)"
+                )
+                print(f"  Research Notes: {results['research_notes']} [{status_str}]")
+            if "illustration" in results:
+                status_str: str = (
+                    "generated" if results.get("visuals_generated") else "cached (skipped)"
+                )
+                print(f"  Visual Prompt:  {results['visual_prompt']}")
+                print(f"  Illustration:   {results['illustration']} [{status_str}]")
+        except Exception as exc:
+            print(f"Enrichment error on {idea_target}: {exc}", file=sys.stderr)
+            return 1
+
+    return 0
 
 
 def handle_blog_command(args: argparse.Namespace) -> int:
@@ -502,21 +579,15 @@ def handle_blog_command(args: argparse.Namespace) -> int:
         print("Error: Specify --idea <id> or --all", file=sys.stderr)
         return 1
 
-    ideas_to_process: list[str] = []
-    if args.idea:
-        ideas_to_process = [args.idea]
-    elif args.all:
-        if ideas_dir.is_dir():
-            for p in sorted(ideas_dir.iterdir()):
-                if p.is_dir() and p.name.startswith("idea-"):
-                    ideas_to_process.append(p.name)
-
+    ideas_to_process: list[str] = resolve_ideas_to_process(args.idea, args.all, ideas_dir)
     if not ideas_to_process:
         print("No ideas found to process.", file=sys.stderr)
         return 1
 
-    for idea_target in ideas_to_process:
+    total: int = len(ideas_to_process)
+    for idx, idea_target in enumerate(ideas_to_process, start=1):
         try:
+            print(f"[{idx}/{total}] Generating blog post for idea {idea_target}...")
             results = process_blog_and_social(
                 idea_id_or_num=idea_target,
                 ideas_root=ideas_dir,
@@ -552,21 +623,15 @@ def handle_social_command(args: argparse.Namespace) -> int:
         print("Error: Specify --idea <id> or --all", file=sys.stderr)
         return 1
 
-    ideas_to_process: list[str] = []
-    if args.idea:
-        ideas_to_process = [args.idea]
-    elif args.all:
-        if ideas_dir.is_dir():
-            for p in sorted(ideas_dir.iterdir()):
-                if p.is_dir() and p.name.startswith("idea-"):
-                    ideas_to_process.append(p.name)
-
+    ideas_to_process: list[str] = resolve_ideas_to_process(args.idea, args.all, ideas_dir)
     if not ideas_to_process:
         print("No ideas found to process.", file=sys.stderr)
         return 1
 
-    for idea_target in ideas_to_process:
+    total: int = len(ideas_to_process)
+    for idx, idea_target in enumerate(ideas_to_process, start=1):
         try:
+            print(f"[{idx}/{total}] Generating social companion post for idea {idea_target}...")
             results = process_blog_and_social(
                 idea_id_or_num=idea_target,
                 ideas_root=ideas_dir,
@@ -582,6 +647,100 @@ def handle_social_command(args: argparse.Namespace) -> int:
             print(f"  LinkedIn Post: {results['linkedin_post']} [{status_str}]")
         except Exception as exc:
             print(f"Error processing social for {idea_target}: {exc}", file=sys.stderr)
+            return 1
+
+    return 0
+
+
+def handle_pipeline_command(args: argparse.Namespace) -> int:
+    """Handle `pipeline` subcommand: run end-to-end publishing pipeline."""
+    from services.enrichment.pipeline import enrich_idea
+    from services.publishing.pipeline import process_blog_and_social
+    from services.typesetting.pipeline import process_book_chapter
+
+    repo_root: Path = Path(__file__).resolve().parent.parent.parent
+    catalog_path, snapshot_path, _, ideas_dir = get_default_paths()
+    resources_dir: Path = repo_root / "artefacts" / "content" / "resources"
+
+    if not args.idea and not args.all:
+        print("Error: Specify --idea <id> or --all", file=sys.stderr)
+        return 1
+
+    ideas_to_process: list[str] = resolve_ideas_to_process(args.idea, args.all, ideas_dir)
+    if not ideas_to_process:
+        print("No ideas found to process.", file=sys.stderr)
+        return 1
+
+    total: int = len(ideas_to_process)
+    for idx, idea_target in enumerate(ideas_to_process, start=1):
+        print("\n==========================================")
+        print(f"[{idx}/{total}] Pipeline processing idea {idea_target}")
+        print("==========================================")
+        try:
+            # 1. Enrich
+            print("  Phase 1/5: Research and Visual Enrichment...")
+            enrich_res = enrich_idea(
+                idea_id_or_num=idea_target,
+                ideas_root=ideas_dir,
+                resources_root=resources_dir,
+                catalog_path=catalog_path,
+                snapshot_path=snapshot_path,
+                do_research=True,
+                do_visuals=True,
+                force=args.force,
+            )
+            # 2. Draft book chapter
+            print("  Phase 2/5: Drafting Book Chapter...")
+            process_book_chapter(
+                idea_id_or_num=idea_target,
+                ideas_root=ideas_dir,
+                repo_root=repo_root,
+                catalog_path=catalog_path,
+                snapshot_path=snapshot_path,
+                do_draft=True,
+                do_compile=False,
+                force=args.force,
+            )
+            # 3. Typeset single chapter PDF
+            print("  Phase 3/5: Compiling Typst Chapter PDF...")
+            process_book_chapter(
+                idea_id_or_num=idea_target,
+                ideas_root=ideas_dir,
+                repo_root=repo_root,
+                catalog_path=catalog_path,
+                snapshot_path=snapshot_path,
+                do_draft=False,
+                do_compile=True,
+                force=args.force,
+            )
+            # 4. Blog Post
+            print("  Phase 4/5: Generating Blog Post...")
+            process_blog_and_social(
+                idea_id_or_num=idea_target,
+                ideas_root=ideas_dir,
+                repo_root=repo_root,
+                catalog_path=catalog_path,
+                snapshot_path=snapshot_path,
+                do_blog=True,
+                do_social=False,
+                cms_platform=args.platform,
+                force=args.force,
+            )
+            # 5. Social Post
+            print("  Phase 5/5: Generating Social Companion Post...")
+            process_blog_and_social(
+                idea_id_or_num=idea_target,
+                ideas_root=ideas_dir,
+                repo_root=repo_root,
+                catalog_path=catalog_path,
+                snapshot_path=snapshot_path,
+                do_blog=False,
+                do_social=True,
+                force=args.force,
+            )
+            print(f"Completed pipeline for [{enrich_res['idea_id']}] '{enrich_res['title']}'.")
+        except Exception as exc:
+            print(f"Pipeline error on {idea_target}: {exc}", file=sys.stderr)
             return 1
 
     return 0
@@ -610,6 +769,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return handle_blog_command(args)
     if args.subcommand == "social":
         return handle_social_command(args)
+    if args.subcommand == "pipeline":
+        return handle_pipeline_command(args)
 
     parser.print_help()
     return 1

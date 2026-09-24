@@ -243,3 +243,55 @@ def test_pipeline_idempotency() -> None:
         )
         assert run3["blog_generated"] is True
         assert run3["social_generated"] is True
+
+
+def test_markdown_interoperability_and_portability() -> None:
+    """Verify exported Markdown complies with CommonMark/GFM standards for PKM tools (NFR-EXT-003)."""
+    import re
+
+    from services.typesetting.drafter import draft_book_chapter
+
+    repo_root = Path(__file__).resolve().parent.parent.parent.parent
+    with tempfile.TemporaryDirectory(dir=str(repo_root / "artefacts")) as tmp_dir:
+        ideas_root = Path(tmp_dir) / "ideas"
+        ideas_root.mkdir(parents=True)
+
+        idea = _create_test_idea("idea-001")
+        provision_idea(idea, ideas_root)
+
+        # 1. Draft Book Chapter
+        chapter_path, _ = draft_book_chapter(idea, ideas_root, force=True)
+        chapter_text = chapter_path.read_text(encoding="utf-8")
+
+        # 2. Draft Blog Post
+        post_path, _ = draft_blog_post(idea, ideas_root, force=True)
+        post_text = post_path.read_text(encoding="utf-8")
+
+        # Verify CommonMark / GFM characteristics across files
+        for md_path, md_content in [(chapter_path, chapter_text), (post_path, post_text)]:
+            # No raw unescaped HTML tags (pure Markdown portable to Obsidian/Notion/Logseq)
+            assert "<script" not in md_content
+            assert "<iframe" not in md_content
+            assert "<div" not in md_content
+
+            # Valid heading hierarchy (#, ##, ###)
+            headings = re.findall(r"^(#+)\s+(.+)$", md_content, re.MULTILINE)
+            assert len(headings) >= 2, f"Expected multiple headings in {md_path.name}"
+
+            # Valid image tags with relative paths
+            images = re.findall(r"!\[(.*?)\]\((.*?)\)", md_content)
+            for caption, img_target in images:
+                assert img_target.endswith(".png"), (
+                    f"Invalid image reference in {md_path.name}: {img_target}"
+                )
+
+            # Valid markdown table structure if present
+            if "|" in md_content:
+                table_lines = [
+                    ln.strip() for ln in md_content.splitlines() if ln.strip().startswith("|")
+                ]
+                assert len(table_lines) >= 3, (
+                    "Markdown tables should have header, separator, and data rows"
+                )
+                # Check for standard markdown table separator
+                assert any("---" in ln for ln in table_lines)

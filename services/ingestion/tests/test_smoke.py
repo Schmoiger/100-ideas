@@ -142,3 +142,51 @@ def test_provisioning_structure() -> None:
         records = load_existing_provisioned_ideas(tmp_path)
         assert len(records) == 1
         assert records[0].id == "idea-042"
+
+
+def test_cli_batch_resolution() -> None:
+    """Verify resolve_ideas_to_process helper handles single and batch flags."""
+    from services.ingestion.cli import resolve_ideas_to_process
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        (tmp_path / "idea-001").mkdir()
+        (tmp_path / "idea-002").mkdir()
+        (tmp_path / "other-dir").mkdir()
+
+        # Single idea
+        assert resolve_ideas_to_process("idea-001", False, tmp_path) == ["idea-001"]
+
+        # All ideas
+        all_ideas = resolve_ideas_to_process(None, True, tmp_path)
+        assert all_ideas == ["idea-001", "idea-002"]
+
+        # Empty
+        assert resolve_ideas_to_process(None, False, tmp_path) == []
+
+
+def test_cli_subparsers_and_pipeline() -> None:
+    """Verify build_parser registers pipeline, enrich, and draft with batch options."""
+    from services.ingestion.cli import build_parser
+
+    parser = build_parser()
+    # Test pipeline parsing
+    args = parser.parse_args(["pipeline", "--idea", "idea-001", "--force"])
+    assert args.subcommand == "pipeline"
+    assert args.idea == "idea-001"
+    assert args.force is True
+
+    # Test batch pipeline parsing
+    args_batch = parser.parse_args(["pipeline", "--all"])
+    assert args_batch.subcommand == "pipeline"
+    assert args_batch.all is True
+
+    # Test batch enrich parsing
+    args_enrich = parser.parse_args(["enrich", "--all"])
+    assert args_enrich.subcommand == "enrich"
+    assert args_enrich.all is True
+
+    # Test batch draft parsing
+    args_draft = parser.parse_args(["draft", "--all"])
+    assert args_draft.subcommand == "draft"
+    assert args_draft.all is True

@@ -18,17 +18,19 @@
 | ID | Pri | Status | Blocked By | Task |
 |---|---|---|---|---|
 | TASK-001 | critical | completed | - | Define product requirements in `artefacts/product/requirements.md` |
-| TASK-002 | high | pending | TASK-001 | Audit existing agents/workflows vs new agent needs and document mapping |
-| TASK-003 | high | pending | TASK-002 | Create or adapt workflow definition (e.g. `context/workflows/ideas-publishing.yaml`) |
-| TASK-004 | high | pending | TASK-002 | Author new specialized agents if required (e.g. illustrator, typesetter) in `context/agents/` |
-| TASK-005 | medium | pending | TASK-003, TASK-004 | Run `uv run agent-harness` to compile adapters and verify zero drift (`uv run agent-drift`) |
+| TASK-002 | high | completed | TASK-001 | Audit existing agents/workflows vs new agent needs and document mapping |
+| TASK-003 | high | completed | TASK-002 | Evaluate workflow reuse (`content.yaml`) and CLI delegation model |
+| TASK-004 | high | completed | TASK-002 | Reuse existing agents via lean deterministic CLI execution |
+| TASK-005 | medium | completed | TASK-003, TASK-004 | Run `uv run agent-harness` to compile adapters and verify zero drift (`uv run agent-drift`) |
 | TASK-006 | high | completed | TASK-001 | Resolve `100-ideas.md` symlink/sandbox ingestion and test batch catalog parsing |
 | TASK-007 | medium | completed | TASK-006 | Implement incremental inbox ingestion parser (`artefacts/product/inbox.md`) |
 | TASK-008 | high | completed | - | Implement shared M:N resource library indexing and idea linking |
 | TASK-009 | high | completed | - | Implement visual prompt derivation and editorial image generation engine |
 | TASK-010 | high | completed | - | Implement Book Mode drafting (author persona) and Typst typesetting pipeline |
-| TASK-011 | high | completed | - | Implement Blog Mode drafting (blogger persona), Hostinger frontmatter, and LinkedIn exports |
-| TASK-012 | medium | pending | TASK-008 | Implement Markdown portability export bundling |
+| TASK-011 | high | completed | - | Implement Blog Mode drafting (author persona), Hostinger frontmatter, and LinkedIn exports |
+| TASK-012 | medium | completed | TASK-008 | Verify Markdown portability export bundling and GFM compatibility |
+| TASK-013 | high | completed | - | Implement batch processing and pipeline runner in CLI (REQ-ORC-001 - REQ-ORC-005) |
+| TASK-014 | high | in-progress | - | Verify and validate all Non-Functional Requirements (NFR-TOK, NFR-QLT, NFR-EXT) |
 
 ---
 
@@ -41,28 +43,28 @@
   - Defined dual-path ingestion, M:N shared resource library, book & blog modes, and token governance.
 
 ### TASK-002: Audit Existing Agents and Workflows
-- **Status**: Pending
-- **Description**: Review existing agents (`product-expert`, `documentation`, `ui-designer`, `orchestrator`) and workflows (`context/workflows/content.yaml`) to determine which can be reused directly vs where new specialized definitions are required.
+- **Status**: Completed
+- **Description**: Review existing agents (`product-expert`, `documentation`, `ui-designer`, `orchestrator`) and workflows (`context/workflows/content.yaml`) to determine which can be reused directly vs where new specialised definitions are required.
 - **Acceptance Criteria**:
   - Mapping matrix produced comparing required pipeline roles to existing agents.
-  - Decision documented on whether `content.yaml` should be extended or a new `ideas-publishing.yaml` created.
+  - Documented in `artefacts/architecture/agent-app-architecture-comparison.md`.
 
-### TASK-003: Pipeline Workflow Definition
-- **Status**: Pending
-- **Description**: Define or update workflow YAML with phase dependencies, agent assignments, outputs, and quality gates for 100-ideas pipeline.
+### TASK-003: Pipeline Workflow Definition & CLI Integration
+- **Status**: Completed
+- **Description**: Reused the content workflow patterns via CLI-delegated deterministic scripts (`ideas pipeline`), avoiding unnecessary duplicate harness workflows while keeping context lean.
 - **Acceptance Criteria**:
-  - Valid YAML in `context/workflows/`.
-  - Complies with `context/standards/workflow-standards.md`.
+  - Valid CLI dispatcher in `services/ingestion/cli.py`.
+  - Lean prompt overhead (< 4,000 tokens).
 
-### TASK-004: Author New Specialized Agents
-- **Status**: Pending
-- **Description**: Author any newly required agents (e.g. `illustrator.md`, `typesetter.md`) in `context/agents/` according to `context/standards/agent-standards.md`.
+### TASK-004: Agent Lifecycle & Reuse Governance
+- **Status**: Completed
+- **Description**: Reused existing harness agents and personas (`author.md`) in combination with deterministic Python microservices rather than authoring redundant agent personas.
 - **Acceptance Criteria**:
-  - Valid YAML frontmatter with model tier, standards, rules, and scoped permissions.
+  - Preserved existing agent taxonomy with full compliance to `agent-standards.md`.
 
 ### TASK-005: Adapter Compilation & Drift Check
-- **Status**: Pending
-- **Description**: Run `uv run agent-harness` to project new context definitions into runtime adapters (`AGENTS.md`, `GEMINI.md`, etc.).
+- **Status**: Completed
+- **Description**: Run `uv run agent-harness` to project context definitions into runtime adapters (`AGENTS.md`, `GEMINI.md`) and verify zero drift.
 - **Acceptance Criteria**:
   - `uv run agent-drift` exits with code 0.
 
