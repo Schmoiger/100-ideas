@@ -202,3 +202,68 @@ def translate_chapter_to_typst(
     temp_standalone.replace(output_standalone_path)
 
     return output_body_path, output_standalone_path
+
+
+def markdown_to_volume_chapter_body(
+    markdown_content: str,
+    idea_id: str,
+    chapter_num: int,
+    title: str,
+    volume_title: str,
+    illustration_root_path: str | None = None,
+) -> str:
+    """Translate semantic Markdown chapter content into Typst body markup for a specific volume.
+
+    Dynamically sets chapter number, volume context, and chapter title override.
+    Uses root-relative image paths so the chapter fragment can be compiled
+    from any volume directory.
+    """
+    lines = markdown_content.splitlines()
+    typst_lines: list[str] = []
+    i = 0
+    n = len(lines)
+
+    clean_title = _convert_inline_formatting(title)
+    clean_vol = _convert_inline_formatting(volume_title)
+
+    # 1. Emit volume-dynamic heading and subtitle
+    typst_lines.extend(
+        [
+            f"= Chapter {chapter_num}: {clean_title}",
+            "",
+            f"_Chapter {chapter_num} · {clean_vol}_",
+            "",
+        ]
+    )
+
+    # If illustration path provided, emit figure
+    if illustration_root_path:
+        typst_lines.extend(
+            [
+                "#align(center)[",
+                f'  #figure(image("{illustration_root_path}", width: 80%), caption: [Editorial illustration: {clean_title}])',
+                "]",
+                "",
+            ]
+        )
+
+    # Skip original title (# ), subtitle (*...*), image, and first divider in the source markdown
+    while i < n:
+        stripped = lines[i].strip()
+        if (
+            stripped.startswith("# ")
+            or (stripped.startswith("*") and stripped.endswith("*"))
+            or stripped.startswith("![")
+            or stripped == "---"
+            or stripped == ""
+        ):
+            i += 1
+            continue
+        break
+
+    # Translate remaining body content using standard translator rules
+    remaining_md = "\n".join(lines[i:])
+    remaining_body = markdown_to_typst_body(remaining_md, idea_id)
+    typst_lines.append(remaining_body)
+
+    return "\n".join(typst_lines)

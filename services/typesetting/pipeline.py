@@ -7,8 +7,13 @@ from typing import Any
 
 from services.enrichment.pipeline import load_or_provision_idea
 from services.ingestion.models import IdeaRecord
-from services.typesetting.compiler import compile_aggregated_book, compile_chapter_pdf
+from services.typesetting.compiler import (
+    compile_aggregated_book,
+    compile_chapter_pdf,
+    compile_volume_pdf,
+)
 from services.typesetting.drafter import draft_book_chapter
+from services.typesetting.volumes import get_default_volumes_path, load_volumes_config
 
 
 def process_book_chapter(
@@ -85,3 +90,70 @@ def process_aggregated_book(
         "book_pdf": str(pdf_path),
         "total_chapters": total,
     }
+
+
+def process_volume_book(
+    volume_id: str,
+    ideas_root: Path,
+    repo_root: Path,
+    config_path: Path | None = None,
+    output_pdf_override: Path | None = None,
+    force: bool = False,
+) -> dict[str, Any]:
+    """Compile a declarative multi-volume publication PDF.
+
+    Loads volume specification from config/volumes.yaml, validates chapters,
+    and executes volume-specific Typst compilation with dynamic numbering,
+    part dividers, and table of contents.
+    """
+    if config_path is None:
+        config_path = get_default_volumes_path(repo_root)
+
+    volumes = load_volumes_config(config_path)
+    if volume_id not in volumes:
+        available = ", ".join(sorted(volumes.keys()))
+        raise ValueError(
+            f"Volume '{volume_id}' not found in {config_path}. Available volumes: {available}"
+        )
+
+    volume = volumes[volume_id]
+    pdf_path, total = compile_volume_pdf(
+        volume=volume,
+        ideas_root=ideas_root,
+        repo_root=repo_root,
+        output_pdf_override=output_pdf_override,
+        force=force,
+    )
+    return {
+        "volume_id": volume.id,
+        "title": volume.title,
+        "volume_pdf": str(pdf_path),
+        "total_chapters": total,
+    }
+
+
+def process_all_volumes(
+    ideas_root: Path,
+    repo_root: Path,
+    config_path: Path | None = None,
+    force: bool = False,
+) -> dict[str, Any]:
+    """Compile all volumes defined in config/volumes.yaml."""
+    if config_path is None:
+        config_path = get_default_volumes_path(repo_root)
+
+    volumes = load_volumes_config(config_path)
+    results: dict[str, Any] = {}
+    for vol_id, volume in volumes.items():
+        pdf_path, total = compile_volume_pdf(
+            volume=volume,
+            ideas_root=ideas_root,
+            repo_root=repo_root,
+            force=force,
+        )
+        results[vol_id] = {
+            "title": volume.title,
+            "volume_pdf": str(pdf_path),
+            "total_chapters": total,
+        }
+    return results

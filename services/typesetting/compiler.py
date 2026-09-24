@@ -10,7 +10,11 @@ from typing import Any
 import yaml
 
 from services.ingestion.models import IdeaRecord
-from services.typesetting.translator import translate_chapter_to_typst
+from services.typesetting.translator import (
+    markdown_to_volume_chapter_body,
+    translate_chapter_to_typst,
+)
+from services.typesetting.volumes import VolumeConfig, load_volumes_config
 
 
 def _extract_number(idea_id: str) -> int:
@@ -233,3 +237,161 @@ def compile_aggregated_book(
         raise RuntimeError(f"Failed to compile aggregated book PDF: {err}")
 
     return master_pdf, len(found_chapters)
+
+
+def compile_volume_pdf(
+    volume: VolumeConfig,
+    ideas_root: Path,
+    repo_root: Path,
+    output_pdf_override: Path | None = None,
+    force: bool = False,
+) -> tuple[Path, int]:
+    """Compile a declarative multi-volume book specification to PDF via Typst.
+
+    Handles TASK-017 / REQ-BOK-005 extended:
+    Dynamically generates volume master Typst document and chapter fragments,
+    rendering part divider pages, dynamic chapter numbering, running headers,
+    and table of contents adhering to config/volumes.yaml.
+    """
+    if output_pdf_override:
+        pdf_dest: Path = output_pdf_override.resolve()
+    else:
+        pdf_dest = (repo_root / volume.output_pdf).resolve()
+
+    pdf_dest.parent.mkdir(parents=True, exist_ok=True)
+    volume_typ: Path = pdf_dest.parent / f"{volume.id}.typ"
+    intermediates_dir: Path = pdf_dest.parent / "_volumes" / volume.id
+    intermediates_dir.mkdir(parents=True, exist_ok=True)
+
+    # Validate all chapters exist before starting compilation
+    for part in volume.parts:
+        for chapter_ref in part.chapters:
+            idea_dir = ideas_root / chapter_ref.idea_id
+            chapter_md = idea_dir / "book" / "chapter.md"
+            if not chapter_md.is_file():
+                raise FileNotFoundError(
+                    f"Chapter manuscript not found for '{chapter_ref.idea_id}' at {chapter_md}. "
+                    f"Please draft the chapter before compiling volume '{volume.id}'."
+                )
+
+    brand_import = (
+        f"/{volume.brand.lstrip('/')}" if not volume.brand.startswith("/") else volume.brand
+    )
+    clean_title = volume.title.replace('"', '\\"')
+    clean_subtitle = volume.subtitle.replace('"', '\\"')
+
+    lines: list[str] = [
+        f'#import "{brand_import}": plandek-doc, plandek-contents, plandek-part-divider, plandek-endpiece, plandek-orange, plandek-light, plandek-dark, plandek-gray\n',
+        "#show: plandek-doc.with(",
+        f'  title: "{clean_title}",',
+        f'  subtitle: "{clean_subtitle}",',
+        '  date: "2026",',
+        ")\n",
+        "#plandek-contents(depth: 2)\n",
+    ]
+
+    seq = 1
+    for part_idx, part in enumerate(volume.parts, start=1):
+        if ":" in part.title:
+            label, p_title = [s.strip() for s in part.title.split(":", 1)]
+        else:
+            label = f"Part {part_idx}"
+            p_title = part.title
+
+        clean_label = label.replace('"', '\\"')
+        clean_p_title = p_title.replace('"', '\\"')
+
+        lines.append(
+            f'#plandek-part-divider(\n  label: "{clean_label}",\n  title: "{clean_p_title}",\n)\n'
+        )
+
+        if part.description:
+            clean_desc = part.description.replace('"', '\\"')
+            lines.append(
+                f'#align(center)[\n  #block(width: 85%, inset: (y: 1.5em))[\n    #set text(size: 11pt, style: "italic", fill: plandek-gray)\n    {clean_desc}\n  ]\n]\n'
+            )
+
+        for chapter_ref in part.chapters:
+            idea_dir = ideas_root / chapter_ref.idea_id
+            chapter_md = idea_dir / "book" / "chapter.md"
+
+            if chapter_ref.chapter_title_override:
+                chapter_title = chapter_ref.chapter_title_override
+            else:
+                meta_file = idea_dir / "meta.yaml"
+                chapter_title = ""
+                if meta_file.is_file():
+                    try:
+                        meta_dict = yaml.safe_load(meta_file.read_text(encoding="utf-8"))
+                        if isinstance(meta_dict, dict):
+                            chapter_title = str(meta_dict.get("title", "")).strip()
+                    except Exception:
+                        pass
+                if not chapter_title:
+                    chapter_title = chapter_ref.idea_id
+
+            illus_file = idea_dir / "assets" / "illustration.png"
+            if not illus_file.is_file():
+                illus_file = idea_dir / "assets" / "illustration.webp"
+
+            if illus_file.is_file():
+                try:
+                    rel_to_repo = illus_file.resolve().relative_to(repo_root.resolve())
+                    illustration_root_path = f"/{rel_to_repo.as_posix()}"
+                except ValueError:
+                    illustration_root_path = illus_file.resolve().as_posix()
+            else:
+                illustration_root_path = None
+
+            frag_name = f"chapter-{seq:03d}-{chapter_ref.idea_id}.typ"
+            frag_path = intermediates_dir / frag_name
+
+            if not frag_path.is_file() or force:
+                md_text = chapter_md.read_text(encoding="utf-8")
+                frag_content = markdown_to_volume_chapter_body(
+                    markdown_content=md_text,
+                    idea_id=chapter_ref.idea_id,
+                    chapter_num=seq,
+                    title=chapter_title,
+                    volume_title=volume.title,
+                    illustration_root_path=illustration_root_path,
+                )
+                temp_frag = intermediates_dir / f".{frag_name}.tmp"
+                temp_frag.write_text(frag_content, encoding="utf-8")
+                temp_frag.replace(frag_path)
+
+            rel_include = f"_volumes/{volume.id}/{frag_name}"
+            lines.append(f'#include "{rel_include}"\n')
+            seq += 1
+
+    lines.append('#plandek-endpiece(contact: "https://withineve.com")\n')
+
+    temp_master = pdf_dest.parent / f".{volume_typ.name}.tmp"
+    temp_master.write_text("\n".join(lines), encoding="utf-8")
+    temp_master.replace(volume_typ)
+
+    success, err = run_typst_compile(volume_typ, pdf_dest, repo_root)
+    if not success:
+        raise RuntimeError(f"Failed to compile volume '{volume.id}' PDF: {err}")
+
+    return pdf_dest, seq - 1
+
+
+def compile_all_volumes(
+    config_path: Path,
+    ideas_root: Path,
+    repo_root: Path,
+    force: bool = False,
+) -> dict[str, tuple[Path, int]]:
+    """Compile all volumes defined in declarative volumes configuration."""
+    volumes = load_volumes_config(config_path)
+    results: dict[str, tuple[Path, int]] = {}
+    for vol_id, volume in volumes.items():
+        pdf_path, total = compile_volume_pdf(
+            volume=volume,
+            ideas_root=ideas_root,
+            repo_root=repo_root,
+            force=force,
+        )
+        results[vol_id] = (pdf_path, total)
+    return results
