@@ -39,6 +39,9 @@ artefacts/
 ├── README.md                      # This file (quick search index)
 ├── product/                       # Requirements, user stories, discovery notes
 │   ├── requirements.md            # System requirements (EARS notation)
+│   ├── 100-ideas.md               # Authoritative ideas catalogue table
+│   ├── inbox.md                   # Active ideas intake queue
+│   ├── inbox-archive.md           # Historical archive of provisioned ideas
 │   ├── user-stories.md            # End-to-end user journeys
 │   └── open-questions.md          # Open requirements or scope questions
 ├── architecture/                  # Macro system design, data topology, ADRs
