@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import shutil
 import tempfile
 from pathlib import Path
 
+import pytest
 import yaml
 
 from services.enrichment.visuals import create_editorial_png
@@ -14,6 +16,8 @@ from services.typesetting.compiler import compile_aggregated_book, compile_chapt
 from services.typesetting.drafter import draft_book_chapter
 from services.typesetting.pipeline import process_book_chapter
 from services.typesetting.translator import markdown_to_typst_body
+
+HAS_TYPST = shutil.which("typst") is not None
 
 
 def _create_test_idea(idea_id: str = "idea-001") -> IdeaRecord:
@@ -95,6 +99,7 @@ The cold reality is simple.
     assert "- *First action*: Do this." in typst_body
 
 
+@pytest.mark.skipif(not HAS_TYPST, reason="typst CLI binary not available in PATH")
 def test_typst_chapter_compilation() -> None:
     """Verify compiling a single chapter into publication PDF via Typst CLI."""
     repo_root = Path(__file__).resolve().parent.parent.parent.parent
@@ -134,6 +139,7 @@ def test_typst_chapter_compilation() -> None:
         assert meta_dict.get("chapter_pdf") == "book/chapter.pdf"
 
 
+@pytest.mark.skipif(not HAS_TYPST, reason="typst CLI binary not available in PATH")
 def test_aggregated_book_compilation() -> None:
     """Verify aggregating multiple chapters into unified book volume with TOC."""
     repo_root = Path(__file__).resolve().parent.parent.parent.parent
@@ -181,7 +187,7 @@ def test_pipeline_idempotency() -> None:
         idea = _create_test_idea("idea-005")
         provision_idea(idea, ideas_root)
 
-        # Run 1: generated & compiled
+        # Run 1: generated & compiled (if typst available)
         run1 = process_book_chapter(
             idea_id_or_num="idea-005",
             ideas_root=ideas_root,
@@ -189,11 +195,11 @@ def test_pipeline_idempotency() -> None:
             catalog_path=catalog_path,
             snapshot_path=snapshot_path,
             do_draft=True,
-            do_compile=True,
+            do_compile=HAS_TYPST,
             force=False,
         )
         assert run1["draft_generated"] is True
-        assert run1["pdf_compiled"] is True
+        assert run1["pdf_compiled"] is HAS_TYPST
 
         # Run 2: cached / skipped
         run2 = process_book_chapter(
@@ -203,7 +209,7 @@ def test_pipeline_idempotency() -> None:
             catalog_path=catalog_path,
             snapshot_path=snapshot_path,
             do_draft=True,
-            do_compile=True,
+            do_compile=HAS_TYPST,
             force=False,
         )
         assert run2["draft_generated"] is False
