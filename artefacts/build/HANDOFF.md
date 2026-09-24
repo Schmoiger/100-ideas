@@ -51,6 +51,7 @@ Completed comprehensive Technical Lead Codebase Review and Cleanup Architecture 
 
 ## Artefacts
 
+- **Code Narrative**: `artefacts/build/code-narrative.md`
 - **Tech Review**: `artefacts/build/tech-review.md`
 - **Tasks Backlog**: `artefacts/build/tasks.md`
 - **Requirements**: `artefacts/product/requirements.md`
