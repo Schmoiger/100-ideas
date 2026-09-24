@@ -553,6 +553,60 @@ def build_parser() -> argparse.ArgumentParser:
         help="Remove human_modified safeguard to re-enable automated overwriting",
     )
 
+    # Subcommand: revise (Targeted section refinement)
+    revise_p = subparsers.add_parser(
+        "revise",
+        help="Targeted section refinement for chapter manuscript (TASK-019)",
+    )
+    revise_p.add_argument(
+        "--idea",
+        "-i",
+        required=True,
+        help="Idea ID (e.g. idea-001) or 1-based index",
+    )
+    revise_p.add_argument(
+        "--section",
+        "-s",
+        required=True,
+        help="Target section name or alias (e.g. mechanics, economics, takeaways, hype, lead_punch)",
+    )
+    revise_p.add_argument(
+        "--content",
+        "-c",
+        help="Replacement text for the targeted section",
+    )
+    revise_p.add_argument(
+        "--from-file",
+        help="Path to text or markdown file containing the new section content",
+    )
+    revise_p.add_argument(
+        "--append",
+        action="store_true",
+        help="Append content to existing section rather than replacing it",
+    )
+    revise_p.add_argument(
+        "--notes",
+        "-m",
+        default="",
+        help="Editorial note explaining the revision rationale",
+    )
+    revise_p.add_argument(
+        "--reviewer",
+        "-r",
+        default="Avi",
+        help="Reviewer or author identifier (default: Avi)",
+    )
+    revise_p.add_argument(
+        "--syndicate",
+        action="store_true",
+        help="Re-syndicate downstream blog and social channels after revision",
+    )
+    revise_p.add_argument(
+        "--typeset",
+        action="store_true",
+        help="Trigger immediate single-chapter Typst PDF compilation for visual review",
+    )
+
     return parser
 
 
@@ -1035,6 +1089,93 @@ def handle_mark_edited_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_revise_command(args: argparse.Namespace) -> int:
+    """Handle `revise` subcommand: targeted refinement of specific document sections (TASK-019)."""
+    from services.enrichment.pipeline import load_or_provision_idea
+    from services.typesetting.revision import revise_chapter_section
+
+    repo_root: Path = Path(__file__).resolve().parent.parent.parent
+    catalog_path, snapshot_path, _, ideas_dir = get_default_paths()
+
+    if not args.idea:
+        print("Error: Specify --idea <id>", file=sys.stderr)
+        return 1
+
+    target_id: str = f"idea-{int(args.idea):03d}" if str(args.idea).isdigit() else str(args.idea)
+    idea_dir: Path = ideas_dir / target_id
+
+    content: str = args.content or ""
+    if getattr(args, "from_file", None):
+        from_path = Path(args.from_file)
+        if not from_path.is_file():
+            print(f"Error: Content file not found at {from_path}", file=sys.stderr)
+            return 1
+        content = from_path.read_text(encoding="utf-8")
+
+    if not content:
+        print("Error: Provide revision content via --content or --from-file", file=sys.stderr)
+        return 1
+
+    try:
+        chapter_file, rev_info = revise_chapter_section(
+            idea_dir=idea_dir,
+            section=args.section,
+            new_content=content,
+            reviewer=getattr(args, "reviewer", "Avi"),
+            notes=getattr(args, "notes", ""),
+            append=getattr(args, "append", False),
+        )
+        print(
+            f"[{target_id}] Successfully revised section '{rev_info['section']}' in {chapter_file.name}:"
+        )
+        print(f"  Reviewer: {rev_info['reviewed_by']}")
+        print(f"  Notes:    {rev_info['notes']}")
+        print("  Status:   human_modified=True, review_status=needs_revision")
+
+        if getattr(args, "syndicate", False):
+            from services.publishing.pipeline import process_blog_and_social
+
+            print(f"Re-syndicating downstream blog and social channels for {target_id}...")
+            process_blog_and_social(
+                idea_id_or_num=target_id,
+                ideas_root=ideas_dir,
+                repo_root=repo_root,
+                catalog_path=catalog_path,
+                snapshot_path=snapshot_path,
+                do_blog=True,
+                do_social=True,
+                force=True,
+                overwrite_manual=True,
+            )
+            print("  ✓ Syndication complete: blog/post.md and blog/linkedin.md updated.")
+
+        if getattr(args, "typeset", False):
+            from services.typesetting.compiler import compile_chapter_pdf
+
+            idea = load_or_provision_idea(
+                idea_id_or_num=target_id,
+                ideas_root=ideas_dir,
+                catalog_path=catalog_path,
+                snapshot_path=snapshot_path,
+            )
+            print(f"Compiling Typst PDF preview for {target_id}...")
+            pdf_path, success, err = compile_chapter_pdf(
+                idea=idea,
+                ideas_root=ideas_dir,
+                repo_root=repo_root,
+                force=True,
+            )
+            if success:
+                print(f"  ✓ PDF preview compiled: {pdf_path}")
+            else:
+                print(f"  ✗ PDF compilation failed: {err}", file=sys.stderr)
+
+        return 0
+    except Exception as exc:
+        print(f"Error revising {target_id}: {exc}", file=sys.stderr)
+        return 1
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """CLI entry point."""
     parser: argparse.ArgumentParser = build_parser()
@@ -1064,6 +1205,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return handle_review_command(args)
     if args.subcommand == "mark-edited":
         return handle_mark_edited_command(args)
+    if args.subcommand == "revise":
+        return handle_revise_command(args)
 
     parser.print_help()
     return 1
