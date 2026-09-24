@@ -31,6 +31,12 @@
 | TASK-012 | medium | completed | TASK-008 | Verify Markdown portability export bundling and GFM compatibility |
 | TASK-013 | high | completed | - | Implement batch processing and pipeline runner in CLI (REQ-ORC-001 - REQ-ORC-005) |
 | TASK-014 | high | in-progress | - | Verify and validate all Non-Functional Requirements (NFR-TOK, NFR-QLT, NFR-EXT) |
+| TASK-015 | critical | pending | TASK-014 | Solution Architect Review: Continuous Ingestion, Human-in-the-Loop, and Multi-Volume Architecture |
+| TASK-016 | high | pending | TASK-015 | Refactor continuous ingestion lifecycle, inbox archiving, and decouple idea ID from chapter numbers |
+| TASK-017 | high | pending | TASK-015 | Implement multi-volume book mapping configuration (`config/volumes.yaml`) and compilation |
+| TASK-018 | high | pending | TASK-015 | Implement state machine and manual edit protection safeguards (`human_modified`) in `meta.yaml` |
+| TASK-019 | medium | pending | TASK-018 | Implement interactive agentic chat revision loop and hierarchical channel syndication (SSOT) |
+| TASK-020 | high | pending | TASK-015 | Implement live Gemini Python SDK (`google-genai`) integration with prompt caching and token governance |
 
 ---
 
@@ -103,5 +109,56 @@
   - CMS adapter engine configurable via `config/publishing.yaml` supporting WordPress, Ghost, and Static Astro/Hugo outputs.
   - Idempotent CLI integration via `ideas blog` and `ideas social`.
 
+### TASK-015: Solution Architect Review: Continuous Ingestion, Human-in-the-Loop, and Multi-Volume Architecture
+- **Status**: Pending
+- **Assignee**: `@solution-architect`
+- **Description**: Conduct comprehensive architectural review to address false assumptions: redesign ingestion for irregular inbox intake, define human-in-the-loop revision model, establish multi-volume publishing schema, and design live Gemini SDK integration with token governance.
+- **Acceptance Criteria**:
+  - Updated `artefacts/architecture/architecture.md` detailing the revised component boundaries and state machines.
+  - Updated `artefacts/architecture/data-model.md` defining volume mapping, inbox lifecycle, and `meta.yaml` state fields.
+  - Review sign-off document produced in `artefacts/architecture/review-continuous-publishing.md`.
 
+### TASK-016: Continuous Ingestion Lifecycle & ID Decoupling
+- **Status**: Pending
+- **Description**: Refactor ingestion subsystem to support continuous and irregular intake via `inbox.md`. Move processed inbox entries to `inbox-archive.md` (or update with status markers). Decouple internal idea identifiers (e.g. `idea-<slug>` or stable sequence) from publication chapter numbering. Remove hardcoded `max_id_num = 100` ceiling in `cli.py`.
+- **Acceptance Criteria**:
+  - Ingesting an idea from `inbox.md` updates the inbox file without re-parsing processed items on subsequent runs.
+  - Arbitrary number of ideas supported (> 100) with deterministic duplicate detection.
+  - Idea directories can be provisioned at any time without resetting or relying on sequential batch index.
+
+### TASK-017: Multi-Volume Book Configuration & Mapping
+- **Status**: Pending
+- **Description**: Implement flexible volume mapping configuration (`config/volumes.yaml`) allowing arbitrary ideas to be mapped to specific volumes (e.g. 100 ideas per book, thematic volumes), parts, and ordered chapter slots. Update Typst compiler to generate volume-specific PDFs with dedicated TOC and introduction.
+- **Acceptance Criteria**:
+  - Valid schema in `config/volumes.yaml` defining volumes, metadata, parts, and ordered lists of idea IDs.
+  - `ideas typeset --volume <volume_id>` compiles only the ideas assigned to that volume.
+  - Idea chapter numbers and running headers in Typst match their assigned position within the volume, not their raw database ID.
+
+### TASK-018: Human-in-the-Loop Safeguards & State Machine
+- **Status**: Pending
+- **Description**: Add workflow state machine and manual edit protection to `meta.yaml` (`stage: raw | research_ready | draft_in_progress | human_review | approved | published`, `human_modified: bool`). Prevent `--force` from destroying human edits to `chapter.md`, `post.md`, or `notes.md` unless an explicit `--overwrite-manual` flag is supplied. Incorporate editorial quality gates (voice fidelity check against `context/persona/author.md`) and dual-target asset path resolution (Typst figure embedding vs. CMS publishing staging).
+- **Acceptance Criteria**:
+  - `meta.yaml` tracks lifecycle stage, edit timestamps, review status, and human modification flag.
+  - CLI operations refuse to overwrite files marked `human_modified: true` without explicit `--overwrite-manual`.
+  - Editorial quality gate validates voice fidelity (British English, bold lead-ins, economic realism) before moving an idea from `draft_in_progress` to `approved`.
+  - Downstream drafting consumes existing `research/notes.md` content rather than ignoring it.
+  - Asset path resolver handles both relative figure paths for Typst compilation and web-ready image paths for CMS publishing.
+
+### TASK-019: Interactive Agentic Chat Revision Loop & Channel Syndication
+- **Status**: Pending
+- **Description**: Implement interactive agent revision interface allowing conversational refinement of drafted text, selective prompt adjustment, and section-by-section regeneration. Refactor Blog Mode and Social Mode to syndicate from the approved master chapter manuscript (Single Source of Truth) rather than diverging from the raw synopsis.
+- **Acceptance Criteria**:
+  - Agentic chat interaction protocol defined for iterative review and revision.
+  - Blog post and LinkedIn post generators can consume approved `book/chapter.md` to extract core arguments and ensure channel alignment.
+  - Refinement commands support targeted section updates without rewriting entire documents.
+
+### TASK-020: Live Gemini Python SDK Integration & Token Governance
+- **Status**: Pending
+- **Description**: Integrate the official `google-genai` Python SDK using `GEMINI_API_KEY` from `.env`. Implement tiered models (`gemini-2.5-flash` for research/extraction, `gemini-2.5-pro` for creative drafting, `imagen-3.0` for visuals). Replace primitive regex matching in `services/enrichment/researcher.py` with Gemini-driven research synthesis deeply grounded in linked `artefacts/content/resources/`. Add native context caching for shared whitepapers and persona instructions to eliminate redundant token expenditure.
+- **Acceptance Criteria**:
+  - Secure API key resolution from `.env` via `python-dotenv` without committing secrets.
+  - Research synthesis directly extracts empirical data, trade-offs, and grounded citations from linked `artefacts/content/resources/` using Gemini rather than regex keyword matching.
+  - Prompt caching active for reusable context (> 32k tokens or shared resource library), dramatically reducing token costs.
+  - Token telemetry (cached tokens, prompt tokens, completion tokens, latency) recorded in `meta.yaml`.
+  - Offline fallback / mock mode retained for fast local testing.
 
