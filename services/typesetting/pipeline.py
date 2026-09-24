@@ -35,6 +35,8 @@ def process_book_chapter(
     results: dict[str, Any] = {
         "idea_id": idea.id,
         "title": idea.title,
+        "draft_generated": False,
+        "pdf_compiled": False,
     }
 
     # 1. Draft chapter manuscript (REQ-BOK-001, REQ-BOK-002)
