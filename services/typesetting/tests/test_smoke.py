@@ -214,3 +214,31 @@ def test_pipeline_idempotency() -> None:
         )
         assert run2["draft_generated"] is False
         assert run2["pdf_compiled"] is False
+
+
+@pytest.mark.skipif(not HAS_TYPST, reason="Typst binary not installed in test environment")
+def test_typst_compilation_latency() -> None:
+    """Verify Typst PDF chapter compilation time meets NFR-TOK-003 (< 2.0s per chapter)."""
+    import time
+
+    repo_root = Path(__file__).resolve().parent.parent.parent.parent
+    with tempfile.TemporaryDirectory(dir=str(repo_root / "artefacts")) as tmp_dir:
+        ideas_root = Path(tmp_dir) / "ideas"
+        ideas_root.mkdir(parents=True)
+
+        idea = _create_test_idea("idea-001")
+        provision_idea(idea, ideas_root)
+        draft_book_chapter(idea, ideas_root, force=True)
+
+        start_time = time.perf_counter()
+        pdf_path, compiled = compile_chapter_pdf(
+            idea=idea,
+            ideas_root=ideas_root,
+            repo_root=repo_root,
+            force=True,
+        )
+        elapsed = time.perf_counter() - start_time
+
+        assert compiled is True
+        assert pdf_path.is_file()
+        assert elapsed < 2.0, f"Compilation took {elapsed:.2f}s, exceeding 2.0s limit (NFR-TOK-003)"
